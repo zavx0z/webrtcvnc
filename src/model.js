@@ -1,5 +1,6 @@
 import {flow, types} from "mobx-state-tree"
 import {io} from "socket.io-client"
+import freeice from "freeice"
 
 const sio = io("ws://127.0.0.1:8000", {transports: ["websocket"]}).on("connect", () => console.log("connected"))
 const RTCmodel = types
@@ -14,13 +15,13 @@ const RTCmodel = types
         }
         const receiveAnswer = async ({answer, sender}) => {
             console.log(answer.type, sender, answer)
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+            const remoteDesc = new RTCSessionDescription(answer)
+            await peerConnection.setRemoteDescription(remoteDesc)
             console.log(peerConnection.iceGatheringState)
         }
         return {
             afterCreate() {
-                const conf = {iceServers: [{urls: "stun:stun.l.google.com:19302"}]}
-                peerConnection = new RTCPeerConnection(conf)
+                peerConnection = new RTCPeerConnection({iceServers: freeice()})
                 peerConnection.addEventListener('icecandidate', console.log)
                 peerConnection.addEventListener("icegatheringstatechange", console.log)
                 peerConnection.addEventListener('connectionstatechange', console.log)
