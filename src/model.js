@@ -24,13 +24,10 @@ const sio = io("ws://127.0.0.1:8000", {transports: ["websocket"]}).on("connect",
 const eventDataChannel = (event) => {
     console.log('eventConnectionStateChange', event)
 }
-const eventDataChannelOpen = (event) => {
-    console.log('eventDataChannelOpen', event)
-}
 const RTCmodel = types
     .model('RTC', {})
     .volatile(self => ({
-        connection: types.optional(types.enumeration('состояние соединения', [
+        connection: types.optional(types.enumeration('connection', [
             'new',
             'connected',
             'disconnected',
@@ -61,6 +58,9 @@ const RTCmodel = types
             const remoteDesc = new RTCSessionDescription(answer)
             await peerConnection.setRemoteDescription(remoteDesc)
         }
+        const eventDataMessage = event => self['receiveData'](event.data)
+        const eventDataChannelOpen = (event) => console.log('eventDataChannelOpen', event)
+
         const eventConnectionStateChange = (event) => self['changeStateConnection'](event.target['connectionState'])
         const eventIceGatheringStateChange = (event) => self['changeStateIceGathering'](event.target['iceGatheringState'])
         const eventIceCandidate = (event) => {
@@ -81,24 +81,31 @@ const RTCmodel = types
             },
             afterCreate() {
                 addMiddleware(self, logMiddleware)
-                peerConnection = new RTCPeerConnection({iceServers: freeice()})
-                peerConnection.addEventListener('icecandidate', eventIceCandidate)
-                peerConnection.addEventListener("icegatheringstatechange", eventIceGatheringStateChange)
-                peerConnection.addEventListener('connectionstatechange', eventConnectionStateChange)
-                peerConnection.addEventListener('datachannel', eventDataChannel)
-
-                dataChannel = peerConnection.createDataChannel('data')
-                dataChannel.addEventListener('open', eventDataChannelOpen)
-
-                sio.on('answer', messageReceiveAnswer)
             },
             start: flow(function* () {
                 try {
+                    peerConnection = new RTCPeerConnection({iceServers: freeice()})
+                    peerConnection.addEventListener('icecandidate', eventIceCandidate)
+                    peerConnection.addEventListener("icegatheringstatechange", eventIceGatheringStateChange)
+                    peerConnection.addEventListener('connectionstatechange', eventConnectionStateChange)
+                    peerConnection.addEventListener('datachannel', eventDataChannel)
+
+                    dataChannel = peerConnection.createDataChannel('data')
+                    dataChannel.addEventListener('open', eventDataChannelOpen)
+                    dataChannel.addEventListener('message', eventDataMessage)
+
+                    sio.on('answer', messageReceiveAnswer)
                     yield messageSendOffer()
                 } catch (e) {
                     return Promise.reject(e)
                 }
             }),
+            receiveData(data) {
+                self.data = data
+            },
+            sendData(data) {
+                dataChannel.send(data)
+            }
         }
     })
 const RTC = RTCmodel.create({})
