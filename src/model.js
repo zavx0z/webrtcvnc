@@ -6,7 +6,9 @@ const sio = io("ws://127.0.0.1:8000", {transports: ["websocket"]}).on("connect",
 const RTCmodel = types
     .model('RTC', {})
     .actions(self => {
-        let peerConnection = null
+        let peerConnection
+        let dataChannel
+
         const sendOffer = async () => {
             console.log('sendOffer')
             const offer = await peerConnection.createOffer()
@@ -22,6 +24,8 @@ const RTCmodel = types
         return {
             afterCreate() {
                 peerConnection = new RTCPeerConnection({iceServers: freeice()})
+                dataChannel = peerConnection.createDataChannel('data')
+                dataChannel.addEventListener('open', console.log)
                 peerConnection.addEventListener('icecandidate', console.log)
                 peerConnection.addEventListener("icegatheringstatechange", console.log)
                 peerConnection.addEventListener('connectionstatechange', console.log)
