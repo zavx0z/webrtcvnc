@@ -5,7 +5,13 @@ import freeice from "freeice"
 const logMiddleware = (call, next) => {
     const moduleName = 'RTC'
     switch (call.name) {
-        case 'changeStatusConnection':
+        case 'changeStateConnection':
+            console.log(moduleName, call.name, call.args[0])
+            break
+        case 'changeStateIceGathering':
+            console.log(moduleName, call.name, call.args[0])
+            break
+        case 'setCandidate':
             console.log(moduleName, call.name, call.args[0])
             break
         default:
@@ -15,27 +21,16 @@ const logMiddleware = (call, next) => {
 }
 
 const sio = io("ws://127.0.0.1:8000", {transports: ["websocket"]}).on("connect", () => console.log("connected"))
-const eventIceCandidate = (event) => {
-    console.log('eventIceCandidate', event)
-    if (event.candidate)
-        sio.emit('new-ice-candidate', event.candidate)
-}
-
-const eventIceGatheringStateChange = (event) => {
-    console.log('eventIceGatheringStateChange', event)
-}
-
 const eventDataChannel = (event) => {
     console.log('eventConnectionStateChange', event)
 }
-
 const eventDataChannelOpen = (event) => {
     console.log('eventDataChannelOpen', event)
 }
 const RTCmodel = types
     .model('RTC', {})
     .volatile(self => ({
-        connection: types.optional(types.enumeration('connectionstatechange', [
+        connection: types.optional(types.enumeration('состояние соединения', [
             'new',
             'connected',
             'disconnected',
@@ -43,7 +38,13 @@ const RTCmodel = types
             'closed',
             'failed',
             'connecting',
-        ]), 'new')
+        ]), 'new'),
+        iceGathering: types.optional(types.enumeration('сбор кандидатов ICE ', [
+            'new',
+            'gathering',
+            'complete'
+        ]), 'new'),
+        candidate: null,
     }))
     .actions(self => {
         let peerConnection
@@ -60,10 +61,23 @@ const RTCmodel = types
             const remoteDesc = new RTCSessionDescription(answer)
             await peerConnection.setRemoteDescription(remoteDesc)
         }
-        const eventConnectionStateChange = (event) => self['changeStatusConnection'](event.target['connectionState'])
+        const eventConnectionStateChange = (event) => self['changeStateConnection'](event.target['connectionState'])
+        const eventIceGatheringStateChange = (event) => self['changeStateIceGathering'](event.target['iceGatheringState'])
+        const eventIceCandidate = (event) => {
+            if (event.candidate) {
+                self['setCandidate'](event.candidate.candidate)
+                sio.emit('new-ice-candidate', event.candidate)
+            } else self['setCandidate'](null)
+        }
         return {
-            changeStatusConnection(status) {
+            changeStateConnection(status) {
                 self.connection = status
+            },
+            changeStateIceGathering(iceGatheringState) {
+                self.iceGatheringState = iceGatheringState
+            },
+            setCandidate(candidate) {
+                self.candidate = candidate
             },
             afterCreate() {
                 addMiddleware(self, logMiddleware)
