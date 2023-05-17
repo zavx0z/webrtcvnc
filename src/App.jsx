@@ -1,14 +1,20 @@
 import React, {useEffect, useRef, useState} from "react"
+import {inject, observer} from "mobx-react"
 
-function WebRTC() {
+
+function WebRTC({RTC}) {
     const [isUsingSTUN, setIsUsingSTUN] = useState(false)
     const [isStarted, setIsStarted] = useState(false)
     const videoRef = useRef(null)
     const audioRef = useRef(null)
     let pc = null
+
+
     useEffect(() => {
         const negotiate = async () => {
-            pc.addTransceiver("video", {direction: "recvonly"})
+            pc.addTransceiver("video", {
+                direction: "recvonly", // предпочтительную направленность приемопередатчика https://developer.mozilla.org/en-US/docs/Web/API/RTCRtpTransceiver/direction
+            })
             pc.addTransceiver("audio", {direction: "recvonly"})
             await pc.setLocalDescription(await pc.createOffer())
             await new Promise((resolve) => {
@@ -39,10 +45,7 @@ function WebRTC() {
             await pc.setRemoteDescription(answer)
         }
         const start = async () => {
-            const config = {sdpSemantics: "unified-plan",}
-            if (isUsingSTUN)
-                config.iceServers = [{urls: ["stun:stun.l.google.com:19302"]}]
-            pc = new RTCPeerConnection(config)
+            pc = new RTCPeerConnection(RTC.Configuration)
             // connect audio / video
             pc.addEventListener("track", (evt) => {
                 if (evt.track.kind === "video") {
@@ -58,7 +61,6 @@ function WebRTC() {
                 await negotiate()
             } catch (error) {
                 console.error(error)
-                alert(error)
             }
         }
         const stop = async () => {
@@ -75,8 +77,15 @@ function WebRTC() {
         return stop
     }, [isStarted, isUsingSTUN])
     const handleToggleSTUN = () => setIsUsingSTUN(!isUsingSTUN)
-    const handleConnect = () => setIsStarted(true)
-    const handleDisconnect = () => setIsStarted(false)
+    const handleConnect = () => {
+        RTC.start()
+            .catch((err) => console.log(err))
+        setIsStarted(true)
+    }
+    const handleDisconnect = () => {
+        RTC.stop()
+        setIsStarted(false)
+    }
     return <div>
         <h1>WebRTC Test</h1>
         <div>
@@ -90,4 +99,9 @@ function WebRTC() {
         <audio ref={audioRef} autoPlay/>
     </div>
 }
-export default WebRTC
+
+const App = ({RTC}) => {
+    return <button onClick={RTC.start}>Start</button>
+}
+
+export default inject('RTC')(observer(App))
