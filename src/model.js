@@ -20,13 +20,12 @@ const logMiddleware = (call, next) => {
     next(call)
 }
 
-const sio = io("ws://127.0.0.1:8000", {transports: ["websocket"]}).on("connect", () => console.log("connected"))
+const sio = io("ws://0.0.0.0:8000", {transports: ["websocket"]}).on("connect", () => console.log("connected"))
 const eventDataChannel = (event) => {
     console.log('eventConnectionStateChange', event)
 }
 const RTCmodel = types
-    .model('RTC', {})
-    .volatile(self => ({
+    .model('RTC', {
         connection: types.optional(types.enumeration('connection', [
             'new',
             'connected',
@@ -41,6 +40,8 @@ const RTCmodel = types
             'gathering',
             'complete'
         ]), 'new'),
+    })
+    .volatile(self => ({
         candidate: null,
     }))
     .actions(self => {
@@ -58,21 +59,33 @@ const RTCmodel = types
             const remoteDesc = new RTCSessionDescription(answer)
             await peerConnection.setRemoteDescription(remoteDesc)
         }
+        const messageReceiveNewIceCandidate = async ({iceCandidate, sender}) => {
+            try {
+                await peerConnection.addIceCandidate(iceCandidate)
+            } catch (e) {
+                console.error('Error adding received ice candidate', e)
+            }
+        }
+
         const eventDataMessage = event => self['receiveData'](event.data)
         const eventDataChannelOpen = (event) => console.log('eventDataChannelOpen', event)
 
         const eventConnectionStateChange = (event) => self['changeStateConnection'](event.target['connectionState'])
         const eventIceGatheringStateChange = (event) => self['changeStateIceGathering'](event.target['iceGatheringState'])
         const eventIceCandidate = (event) => {
-            if (event.candidate) {
+            if (event.candidate?.candidate) {
+                console.log(typeof event.candidate.candidate)
                 self['setCandidate'](event.candidate.candidate)
                 sio.emit('new-ice-candidate', event.candidate)
-            } else self['setCandidate'](null)
+            }
         }
         const eventTrack = async (event) => {
-            console.log('eventTrack')
+            console.log('eventTrack', event)
             const stream = event.streams[0]
             self['videoRef'].srcObject = stream
+        }
+        const eventNegotiationNeeded = event => {
+            console.log('eventNegotiationNeeded', event)
         }
         return {
             changeStateConnection(status) {
@@ -94,6 +107,7 @@ const RTCmodel = types
                     peerConnection.addEventListener("icegatheringstatechange", eventIceGatheringStateChange)
                     peerConnection.addEventListener('connectionstatechange', eventConnectionStateChange)
                     peerConnection.addEventListener('datachannel', eventDataChannel)
+                    peerConnection.addEventListener("negotiationneeded", eventNegotiationNeeded)
 
                     peerConnection.addTransceiver("video", {direction: "recvonly"})
                     peerConnection.addTransceiver("audio", {direction: "recvonly"})
@@ -102,6 +116,7 @@ const RTCmodel = types
                     dataChannel.addEventListener('open', eventDataChannelOpen)
                     dataChannel.addEventListener('message', eventDataMessage)
 
+                    sio.on('new-ice-candidate', messageReceiveNewIceCandidate)
                     sio.on('answer', messageReceiveAnswer)
                     yield messageSendOffer()
                 } catch (e) {
