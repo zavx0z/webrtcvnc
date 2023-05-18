@@ -24,6 +24,7 @@ const App = ({RTC}) => {
                 maxHeight: height,
             }}
             autoPlay
+
             id="video"
         />
         {RTC.connection === 'connecting' &&
