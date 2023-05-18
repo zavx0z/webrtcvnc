@@ -1,25 +1,42 @@
-import React from "react"
-import {inject, observer} from "mobx-react"
+import React, {useRef} from "react"
 import Statistics from "./components/Statistics"
 import DataChannel from "./components/DataChannel"
-import {Box, Paper} from "@mui/material"
-
+import {Box, Skeleton} from "@mui/material"
+import useAspectRatio from "./useAspectRatio"
+import {inject, observer} from "mobx-react"
 
 const App = ({RTC}) => {
-    return <Paper sx={{
-        padding: '10px',
-
-    }}>
+    const parentRef = useRef()
+    const [width, height] = useAspectRatio(parentRef)
+    return <Box
+        ref={parentRef}
+        sx={theme => ({
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+        })}>
         <video
             style={{
-                border: '1px solid'
+                display: RTC.connection === 'connected' ? 'flex' : 'none',
+                maxWidth: width,
+                maxHeight: height,
             }}
-            width={'100%'}
-            autoPlay id="video"
+            autoPlay
+            id="video"
         />
-        <Statistics RTC={RTC}/>
-        <DataChannel RTC={RTC}/>
-    </Paper>
+        {RTC.connection === 'connecting' &&
+            <Skeleton
+                sx={{
+                    display: 'flex',
+                    width: width,
+                    height: height
+                }}
+            />}
+        <Statistics/>
+        <DataChannel/>
+    </Box>
 }
 
 export default inject('RTC')(observer(App))
