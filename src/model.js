@@ -137,7 +137,9 @@ const RTCmodel = types
                 addMiddleware(self, logMiddleware)
             },
             setTrack(event) {
-                self['videoRef'].srcObject = event.streams[0]
+                const {videoRef} = self
+                if (!videoRef.srcObject)
+                    videoRef.srcObject = event.streams[0]
             },
             start: flow(function* () {
                 try {
