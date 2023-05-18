@@ -69,6 +69,11 @@ const RTCmodel = types
                 sio.emit('new-ice-candidate', event.candidate)
             } else self['setCandidate'](null)
         }
+        const eventTrack = async (event) => {
+            console.log('eventTrack')
+            const stream = event.streams[0]
+            self['videoRef'].srcObject = stream
+        }
         return {
             changeStateConnection(status) {
                 self.connection = status
@@ -90,6 +95,9 @@ const RTCmodel = types
                     peerConnection.addEventListener('connectionstatechange', eventConnectionStateChange)
                     peerConnection.addEventListener('datachannel', eventDataChannel)
 
+                    peerConnection.addTransceiver("video", {direction: "recvonly"})
+                    peerConnection.addTransceiver("audio", {direction: "recvonly"})
+                    peerConnection.addEventListener('track', eventTrack)
                     dataChannel = peerConnection.createDataChannel('data')
                     dataChannel.addEventListener('open', eventDataChannelOpen)
                     dataChannel.addEventListener('message', eventDataMessage)
@@ -108,5 +116,10 @@ const RTCmodel = types
             }
         }
     })
+    .views(self => ({
+        get videoRef() {
+            return document.getElementById('video')
+        }
+    }))
 const RTC = RTCmodel.create({})
 export default RTC
