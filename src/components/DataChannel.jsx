@@ -1,5 +1,6 @@
-import {Button, Paper, TextField, Typography} from "@mui/material"
+import {Button, Paper, Table, TableBody, TableCell, TableRow, TextField, Typography} from "@mui/material"
 import React, {useState} from "react"
+import {observer} from "mobx-react"
 
 const Container = ({children}) =>
     <Paper sx={theme => ({
@@ -18,6 +19,18 @@ const Container = ({children}) =>
 const DataChannel = ({RTC}) => {
     const [value, setValue] = useState()
     return <Container>
+        <Table size={'small'}>
+            <TableBody>
+                <TableRow>
+                    <TableCell>
+                        Статус подключения
+                    </TableCell>
+                    <TableCell>
+                        {RTC.dataChannel}
+                    </TableCell>
+                </TableRow>
+            </TableBody>
+        </Table>
         <Typography>
             {RTC.data}
         </Typography>
@@ -34,4 +47,4 @@ const DataChannel = ({RTC}) => {
         </Button>
     </Container>
 }
-export default DataChannel
+export default observer(DataChannel)

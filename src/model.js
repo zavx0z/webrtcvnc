@@ -14,18 +14,17 @@ const logMiddleware = (call, next) => {
         case 'setCandidate':
             console.log(moduleName, call.name, call.args[0])
             break
+        case 'changeStateDataChannel':
+            console.log(moduleName, call.name, call.args[0].type)
+            break
         default:
             break
     }
     next(call)
 }
-
-const sio = io("ws://0.0.0.0:8000", {transports: ["websocket"]}).on("connect", () => console.log("connected"))
-const eventDataChannel = (event) => {
-    console.log('eventConnectionStateChange', event)
-}
 const RTCmodel = types
     .model('RTC', {
+        signalServerAddress: types.string,
         connection: types.optional(types.enumeration('connection', [
             'new',
             'connected',
@@ -35,6 +34,10 @@ const RTCmodel = types
             'failed',
             'connecting',
         ]), 'new'),
+        dataChannel: types.optional(types.enumeration('dataChannel', [
+            'close',
+            'open',
+        ]), 'close'),
         iceGathering: types.optional(types.enumeration('сбор кандидатов ICE ', [
             'new',
             'gathering',
@@ -47,6 +50,10 @@ const RTCmodel = types
     .actions(self => {
         let peerConnection
         let dataChannel
+        const sio = io(
+            String(self.signalServerAddress),
+            {transports: ["websocket"]}
+        ).on("connect", () => console.log("connected"))
 
         const messageSendOffer = async () => {
             console.log('sendOffer')
@@ -59,40 +66,39 @@ const RTCmodel = types
             const remoteDesc = new RTCSessionDescription(answer)
             await peerConnection.setRemoteDescription(remoteDesc)
         }
-        const messageReceiveNewIceCandidate = async ({iceCandidate, sender}) => {
-            try {
-                await peerConnection.addIceCandidate(iceCandidate)
-            } catch (e) {
-                console.error('Error adding received ice candidate', e)
-            }
-        }
+        const messageReceiveNewIceCandidate = ({iceCandidate, sender}) =>
+            peerConnection
+                .addIceCandidate(iceCandidate)
+                .catch(err => console.error('Error adding received ice candidate', err))
 
         const eventDataMessage = event => self['receiveData'](event.data)
-        const eventDataChannelOpen = (event) => console.log('eventDataChannelOpen', event)
-
         const eventConnectionStateChange = (event) => self['changeStateConnection'](event.target['connectionState'])
         const eventIceGatheringStateChange = (event) => self['changeStateIceGathering'](event.target['iceGatheringState'])
         const eventIceCandidate = (event) => {
             if (event.candidate?.candidate) {
-                console.log(typeof event.candidate.candidate)
                 self['setCandidate'](event.candidate.candidate)
                 sio.emit('new-ice-candidate', event.candidate)
             }
         }
         const eventTrack = async (event) => {
             console.log('eventTrack', event)
-            const stream = event.streams[0]
-            self['videoRef'].srcObject = stream
+            self['videoRef'].srcObject = event.streams[0]
         }
         const eventNegotiationNeeded = event => {
             console.log('eventNegotiationNeeded', event)
         }
+        const eventDataChannel = (event) => {
+            console.log('eventConnectionStateChange', event)
+        }
         return {
+            changeStateDataChannel(event) {
+                self.dataChannel = event.type
+            },
             changeStateConnection(status) {
                 self.connection = status
             },
             changeStateIceGathering(iceGatheringState) {
-                self.iceGatheringState = iceGatheringState
+                self.iceGathering = iceGatheringState
             },
             setCandidate(candidate) {
                 self.candidate = candidate
@@ -113,7 +119,7 @@ const RTCmodel = types
                     peerConnection.addTransceiver("audio", {direction: "recvonly"})
                     peerConnection.addEventListener('track', eventTrack)
                     dataChannel = peerConnection.createDataChannel('data')
-                    dataChannel.addEventListener('open', eventDataChannelOpen)
+                    dataChannel.addEventListener('open', self['changeStateDataChannel'])
                     dataChannel.addEventListener('message', eventDataMessage)
 
                     sio.on('new-ice-candidate', messageReceiveNewIceCandidate)
@@ -136,5 +142,7 @@ const RTCmodel = types
             return document.getElementById('video')
         }
     }))
-const RTC = RTCmodel.create({})
+const RTC = RTCmodel.create({
+    signalServerAddress: "ws://0.0.0.0:8000",
+})
 export default RTC
