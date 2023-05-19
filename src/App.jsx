@@ -4,29 +4,21 @@ import DataChannel from "./components/DataChannel"
 import {Box, Skeleton} from "@mui/material"
 import useAspectRatio from "./useAspectRatio"
 import {inject, observer} from "mobx-react"
+import Video from "./components/Video"
 
 const App = ({RTC}) => {
     const parentRef = useRef()
     const [width, height] = useAspectRatio(parentRef)
     return <Box
         ref={parentRef}
-        sx={theme => ({
+        sx={{
             width: '100%',
             height: '100%',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-        })}>
-        <video
-            style={{
-                display: RTC.connection === 'connected' ? 'flex' : 'none',
-                maxWidth: width,
-                maxHeight: height,
-            }}
-            autoPlay
-
-            id="video"
-        />
+        }}>
+        <Video width={width} height={height} visible={RTC.connection === 'connected'}/>
         {RTC.connection === 'connecting' &&
             <Skeleton
                 sx={{
