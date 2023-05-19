@@ -32,6 +32,7 @@ const logMiddleware = (call, next) => {
 const eventNegotiationNeeded = event => console.log('eventNegotiationNeeded', event)
 const RTCmodel = types
     .model('RTC', {
+        id: types.identifier,
         signalServerAddress: types.string,
         connection: types.optional(types.enumeration('connection', [
             'new',
@@ -60,6 +61,7 @@ const RTCmodel = types
         candidate: null,
     }))
     .actions(self => {
+        const sio = io(String(self.signalServerAddress), {transports: ["websocket"]})
         let peerConnection
         const createPeerConnection = () => {
             peerConnection = new RTCPeerConnection({iceServers: freeice()})
@@ -100,7 +102,6 @@ const RTCmodel = types
             dataChannel.addEventListener('open', self['changeStateDataChannel'])
             dataChannel.addEventListener('message', self['receiveData'])
         }
-        const sio = io(String(self.signalServerAddress), {transports: ["websocket"]})
         const messageSendOffer = async () => {
             console.log('sendOffer')
             const offer = await peerConnection.createOffer({iceRestart: false})
@@ -114,9 +115,11 @@ const RTCmodel = types
         const messageReceiveCandidate = ({iceCandidate, sender}) => peerConnection
             .addIceCandidate(iceCandidate)
             .catch(err => console.error('Error adding received ice candidate', err))
+        const detachVideo = () => self['videoRef'].srcObject = null
         const destroy = () => {
             peerConnection && destroyPeerConnection()
             dataChannel && destroyDataChannel()
+            self['videoRef'].srcObject && detachVideo()
         }
         return {
             afterCreate() {
@@ -164,10 +167,11 @@ const RTCmodel = types
     })
     .views(self => ({
         get videoRef() {
-            return document.getElementById('video')
+            return document.getElementById(String(self['id']))
         }
     }))
 const RTC = RTCmodel.create({
+    id: 'video',
     signalServerAddress: "ws://0.0.0.0:8000",
 })
 export default RTC
