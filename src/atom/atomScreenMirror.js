@@ -1,7 +1,7 @@
 import {addMiddleware, getRoot, types} from "mobx-state-tree"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
-import neutronService from "../features/service/neutronService"
+import neutronService from "../core/neutron/neutronService"
 
 console.log(adapter.browserDetails.browser, adapter.browserDetails.version)
 const logMiddleware = (call, next) => {
@@ -122,7 +122,7 @@ const atomScreenMirror = types
             dataChannel && destroyDataChannel()
             if (self['videoRef'].srcObject)
                 self['videoRef'].srcObject = null
-            // sio.off('answer', messageReceiveAnswer)
+            self.core.signalService.off('answer', messageReceiveAnswer)
             // sio.off('candidate', self['receiveCandidate'])
             // sio.on('candidate', self['receiveCandidate'])
         }
@@ -131,11 +131,11 @@ const atomScreenMirror = types
             console.log('sendOffer')
             const offer = await peerConnection.createOffer({iceRestart: false})
             await peerConnection.setLocalDescription(offer)
-            await self.core.signalService.emit('offer', {type: offer.type, sdp: offer.sdp})
+            await self.core.signalService.emit('offer', offer)
         }
-        const messageReceiveAnswer = ({answer, sender}) => peerConnection
+        const messageReceiveAnswer = answer => peerConnection
             .setRemoteDescription(new RTCSessionDescription(answer))
-            .then(() => console.log(answer.type, sender))
+            .then(() => console.log(answer.type))
             .catch(err => {
                 console.log(err)
                 destroy()

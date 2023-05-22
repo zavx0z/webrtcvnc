@@ -5,7 +5,7 @@ import {Provider} from "mobx-react"
 import "./index.css"
 import {types} from "mobx-state-tree"
 import App from "./App"
-import neutronService from "./features/service/neutronService"
+import neutronService from "./core/neutron/neutronService"
 import atomScreenMirror from "./atom/atomScreenMirror"
 import atomScreenShare from "./atom/atomScreenShare"
 

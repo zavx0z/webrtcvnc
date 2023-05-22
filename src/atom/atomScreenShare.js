@@ -1,8 +1,7 @@
 import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
-import atomScreenMirror from "./atomScreenMirror"
-import neutronService from "../features/service/neutronService"
+import neutronService from "../core/neutron/neutronService"
 
 console.log(adapter.browserDetails.browser, adapter.browserDetails.version)
 const logMiddleware = (call, next) => {
@@ -118,11 +117,12 @@ const atomScreenShare = types
         }
         const destroy = () => {
             peerConnection && destroyPeerConnection()
+            self.core.signalService.off('offer', messageReceiveOffer)
             dataChannel && destroyDataChannel()
         }
         // ================================================================================================
-        const messageReceiveOffer = async ({offer, sender}) => {
-            console.log('RTC', offer.type, sender)
+        const messageReceiveOffer = async (offer) => {
+            console.log('RTC', offer.type)
             if (!stream) {
                 console.log('Изображение экрана не установлено')
                 return
@@ -132,12 +132,12 @@ const atomScreenShare = types
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
             const answer = await peerConnection.createAnswer()
             await peerConnection.setLocalDescription(answer)
-            // sio.emit('answer', answer)
+            self.core.signalService.emit('answer', answer)
         }
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
-                // sio.on('offer', messageReceiveOffer)
+
             },
             beforeDestroy() {
                 destroy()
@@ -148,6 +148,7 @@ const atomScreenShare = types
                     audio: true
                 })
                     .then(videoStream => stream = videoStream)
+                    .then(() => self.core.signalService.on('offer', messageReceiveOffer))
                     .catch(error => console.error(error))
             },
             changeStateConnection(event) {
