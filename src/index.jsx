@@ -7,6 +7,8 @@ import {Box, Link as MUILink} from "@mui/material"
 import {createBrowserRouter, Link, RouterProvider} from "react-router-dom"
 import "./index.css"
 import RTCModelClient from "./features/client/RTCModelClient"
+import RTCModelShare from "./features/share/RTCModelShare"
+import Share from "./features/share/Share"
 
 const App = () => {
     return <Box
@@ -16,7 +18,7 @@ const App = () => {
             p: 2,
             gap: 2,
         }}>
-        <MUILink component={Link} to={'/client'}>
+        <MUILink component={Link} to={'/share'}>
             Share
         </MUILink>
         <MUILink component={Link} to={'/client'}>
@@ -25,9 +27,13 @@ const App = () => {
     </Box>
 }
 
-const RTCShareStore = RTCModelClient.create({
+const RTCStoreClient = RTCModelClient.create({
     id: 'video',
     signalServerAddress: "ws://0.0.0.0:8080",
+})
+const RTCStoreShare = RTCModelShare.create({
+    id: 'RTCvideo',
+    signalServerAddress: "ws://0.0.0.0:8000",
 })
 
 const router = createBrowserRouter([
@@ -37,17 +43,17 @@ const router = createBrowserRouter([
     },
     {
         path: "/client",
-        element: <Client store={RTCShareStore}/>,
+        element: <Client store={RTCStoreClient}/>,
     },
     {
         path: "/share",
-        element: <Client/>,
+        element: <Share store={RTCStoreShare}/>,
     },
 ])
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 root.render(
-    <Provider RTC={RTCShareStore}>
+    <Provider RTC={RTCStoreClient}>
         <RouterProvider router={router}/>
     </Provider>
 )
