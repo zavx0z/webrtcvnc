@@ -1,6 +1,6 @@
 import {Button, Paper, Table, TableBody, TableCell, TableRow, TextField, Typography} from "@mui/material"
 import React, {useState} from "react"
-import {inject, observer} from "mobx-react"
+import {observer} from "mobx-react"
 
 const Container = ({children}) =>
     <Paper sx={theme => ({
@@ -47,4 +47,4 @@ const DataChannel = ({RTC}) => {
         </Button>
     </Container>
 }
-export default inject('RTC')(observer(DataChannel))
+export default observer(DataChannel)

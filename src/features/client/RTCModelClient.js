@@ -17,7 +17,10 @@ const logMiddleware = (call, next) => {
         case 'changeStateIceGathering':
             console.log(moduleName, call.name, arg.target.iceGatheringState)
             break
-        case 'setCandidate':
+        case 'receiveCandidate':
+            console.log(moduleName, call.name, arg['iceCandidate'].candidate)
+            break
+        case 'sendCandidate':
             if (arg.candidate?.candidate)
                 console.log(moduleName, call.name, arg.candidate.candidate)
             break
@@ -30,7 +33,7 @@ const logMiddleware = (call, next) => {
     next(call)
 }
 const eventNegotiationNeeded = event => console.log('eventNegotiationNeeded', event)
-const RTCmodel = types
+const RTCModelClient = types
     .model('RTC', {
         id: types.identifier,
         signalServerAddress: types.string,
@@ -70,7 +73,7 @@ const RTCmodel = types
             peerConnection.addEventListener('connectionstatechange', self['changeStateConnection'])
             peerConnection.addEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.addEventListener("negotiationneeded", eventNegotiationNeeded)
-            peerConnection.addEventListener('icecandidate', self['setCandidate'])
+            peerConnection.addEventListener('icecandidate', self['sendCandidate'])
             peerConnection.addEventListener('track', self['setTrack'])
         }
         const destroyPeerConnection = () => {
@@ -78,20 +81,11 @@ const RTCmodel = types
             peerConnection.removeEventListener('connectionstatechange', self['changeStateConnection'])
             peerConnection.removeEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.removeEventListener("negotiationneeded", eventNegotiationNeeded)
-            peerConnection.removeEventListener('icecandidate', self['setCandidate'])
+            peerConnection.removeEventListener('icecandidate', self['sendCandidate'])
             peerConnection.removeEventListener('track', self['setTrack'])
             peerConnection = null
         }
         let dataChannel
-        const destroyDataChannel = () => {
-            dataChannel.removeEventListener('bufferedamountlow', self['changeStateDataChannel'])
-            dataChannel.removeEventListener('closing', self['changeStateDataChannel'])
-            dataChannel.removeEventListener('close', self['changeStateDataChannel'])
-            dataChannel.removeEventListener('error', self['changeStateDataChannel'])
-            dataChannel.removeEventListener('open', self['changeStateDataChannel'])
-            dataChannel.removeEventListener('message', self['receiveData'])
-            dataChannel = null
-        }
         const createDataChannel = () => {
             dataChannel = peerConnection.createDataChannel('data', {negotiated: true, id: 0})
             dataChannel.addEventListener('bufferedamountlow', self['changeStateDataChannel'])
@@ -101,6 +95,16 @@ const RTCmodel = types
             dataChannel.addEventListener('open', self['changeStateDataChannel'])
             dataChannel.addEventListener('message', self['receiveData'])
         }
+        const destroyDataChannel = () => {
+            dataChannel.removeEventListener('bufferedamountlow', self['changeStateDataChannel'])
+            dataChannel.removeEventListener('closing', self['changeStateDataChannel'])
+            dataChannel.removeEventListener('close', self['changeStateDataChannel'])
+            dataChannel.removeEventListener('error', self['changeStateDataChannel'])
+            dataChannel.removeEventListener('open', self['changeStateDataChannel'])
+            dataChannel.removeEventListener('message', self['receiveData'])
+            dataChannel = null
+            self['dataChannel'] = 'close'
+        }
         const messageReceiveCandidate = ({iceCandidate, sender}) => peerConnection
             .addIceCandidate(iceCandidate)
             .catch(err => console.error('Error adding received ice candidate', err))
@@ -108,15 +112,18 @@ const RTCmodel = types
         const initial = () => {
             createPeerConnection()
             createDataChannel()
-            sio.on('candidate', messageReceiveCandidate)
             peerConnection.addTransceiver("video", {direction: "recvonly"})
             peerConnection.addTransceiver("audio", {direction: "recvonly"})
         }
         const destroy = () => {
+            console.log('destroy!')
             peerConnection && destroyPeerConnection()
             dataChannel && destroyDataChannel()
             if (self['videoRef'].srcObject)
                 self['videoRef'].srcObject = null
+            sio.off('answer', messageReceiveAnswer)
+            sio.off('candidate', self['receiveCandidate'])
+            sio.on('candidate', self['receiveCandidate'])
         }
         // ================================================================================================
         const messageSendOffer = async () => {
@@ -128,7 +135,10 @@ const RTCmodel = types
         const messageReceiveAnswer = ({answer, sender}) => peerConnection
             .setRemoteDescription(new RTCSessionDescription(answer))
             .then(() => console.log(answer.type, sender))
-            .catch((err) => console.error("Error send answer", err))
+            .catch(err=> {
+                console.log(err)
+                destroy()
+            })
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
@@ -144,14 +154,27 @@ const RTCmodel = types
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
+                if (event.target.connectionState === 'close')
+                    destroy()
+                if (self.connection === ' failed')
+                    console.log(peerConnection, dataChannel)
             },
             changeStateDataChannel(event) {
                 self.dataChannel = event.type
+                if (self.dataChannel === 'close') {
+                    destroy()
+                    self['connection'] = 'new'
+                }
+
             },
             changeStateIceGathering(event) {
                 self.iceGathering = event.target.iceGatheringState
             },
-            setCandidate(event) {
+            receiveCandidate({iceCandidate, sender}) {
+                peerConnection.addIceCandidate(iceCandidate)
+                    .catch(err => console.error('Error adding received ice candidate', err))
+            },
+            sendCandidate(event) {
                 if (event.candidate?.candidate) {
                     self.candidate = event.candidate.candidate
                     sio.emit('candidate', event.candidate)
@@ -176,8 +199,4 @@ const RTCmodel = types
             return document.getElementById(String(self.id))
         }
     }))
-const RTC = RTCmodel.create({
-    id: 'video',
-    signalServerAddress: "ws://0.0.0.0:8000",
-})
-export default RTC
+export default RTCModelClient

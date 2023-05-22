@@ -7,12 +7,14 @@
     "@emotion/styled": "^11.11.0",
     "@mui/material": "^5.13.1",
     "@use-gesture/react": "^10.2.26",
+    "firebase": "^9.22.0",
     "freeice": "^2.2.2",
     "mobx": "^6.9.0",
     "mobx-react": "^7.6.0",
     "mobx-state-tree": "^5.1.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^6.11.2",
     "react-scripts": "5.0.1",
     "socket.io-client": "^4.6.1",
     "webrtc-adapter": "^8.2.2"
@@ -20,6 +22,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "buildDev": "react-scripts build && rm -rf ../signal/build && cp -r build ../signal/client",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

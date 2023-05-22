@@ -1,5 +1,5 @@
 import {Button, Paper, Table, TableBody, TableCell, TableRow} from "@mui/material"
-import {inject, observer} from "mobx-react"
+import {observer} from "mobx-react"
 import React from "react"
 
 const Container = ({children}) => <Paper sx={theme => ({
@@ -46,4 +46,4 @@ const Statistics = ({RTC}) => {
         </Button>
     </Container>
 }
-export default inject('RTC')(observer(Statistics))
+export default observer(Statistics)
