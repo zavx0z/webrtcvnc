@@ -1,6 +1,8 @@
-import {addMiddleware, getRoot, types} from "mobx-state-tree"
+import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
+import atomScreenMirror from "./atomScreenMirror"
+import neutronService from "../features/service/neutronService"
 
 console.log(adapter.browserDetails.browser, adapter.browserDetails.version)
 const logMiddleware = (call, next) => {
@@ -31,12 +33,14 @@ const logMiddleware = (call, next) => {
     }
     next(call)
 }
-const eventNegotiationNeeded = event => console.log('eventNegotiationNeeded', event)
-const RTCModelClient = types
-    .model('RTC', {
+const eventNegotiationNeeded = event => console.log(event.type)
+const atomScreenShare = types
+    .model('atomScreenShare', {
         id: types.identifier,
-        signalServerAddress: types.string,
-        connection: types.optional(types.enumeration('connection', [
+        core: types.model('atomScreenShareCore', {
+           signalService: types.reference(neutronService)
+        }),
+        connection: types.optional(types.enumeration('состояние соединения', [
             'new',
             'connected',
             'disconnected',
@@ -58,31 +62,32 @@ const RTCModelClient = types
             'gathering',
             'complete'
         ]), 'new'),
+        preview: false
     })
     .volatile(self => ({
-        data: null,
         candidate: null,
+        data: null,
     }))
     .actions(self => {
-        // const sio = io(String(self.signalServerAddress), {transports: ["websocket"]})
-        let signalService
         let peerConnection
         const createPeerConnection = () => {
             peerConnection = new RTCPeerConnection({iceServers: freeice()})
             peerConnection.addEventListener("icegatheringstatechange", self['changeStateIceGathering'])
             peerConnection.addEventListener('connectionstatechange', self['changeStateConnection'])
-            peerConnection.addEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.addEventListener("negotiationneeded", eventNegotiationNeeded)
+            peerConnection.addEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.addEventListener('icecandidate', self['sendCandidate'])
             peerConnection.addEventListener('track', self['setTrack'])
+            // sio.on('candidate', self['receiveCandidate'])
         }
         const destroyPeerConnection = () => {
             peerConnection.removeEventListener("icegatheringstatechange", self['changeStateIceGathering'])
             peerConnection.removeEventListener('connectionstatechange', self['changeStateConnection'])
-            peerConnection.removeEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.removeEventListener("negotiationneeded", eventNegotiationNeeded)
+            peerConnection.removeEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.removeEventListener('icecandidate', self['sendCandidate'])
             peerConnection.removeEventListener('track', self['setTrack'])
+            // sio.off('candidate', self['receiveCandidate'])
             peerConnection = null
         }
         let dataChannel
@@ -103,73 +108,53 @@ const RTCModelClient = types
             dataChannel.removeEventListener('open', self['changeStateDataChannel'])
             dataChannel.removeEventListener('message', self['receiveData'])
             dataChannel = null
-            self['dataChannel'] = 'close'
         }
-        const messageReceiveCandidate = ({iceCandidate, sender}) => peerConnection
-            .addIceCandidate(iceCandidate)
-            .catch(err => console.error('Error adding received ice candidate', err))
         // ------------------------------------------------------------------------------------------------
+        let stream
         const initial = () => {
             createPeerConnection()
+            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
             createDataChannel()
-            peerConnection.addTransceiver("video", {direction: "recvonly"})
-            peerConnection.addTransceiver("audio", {direction: "recvonly"})
         }
         const destroy = () => {
-            console.log('destroy!')
             peerConnection && destroyPeerConnection()
             dataChannel && destroyDataChannel()
-            if (self['videoRef'].srcObject)
-                self['videoRef'].srcObject = null
-            // sio.off('answer', messageReceiveAnswer)
-            // sio.off('candidate', self['receiveCandidate'])
-            // sio.on('candidate', self['receiveCandidate'])
         }
         // ================================================================================================
-        const messageSendOffer = async () => {
-            console.log('sendOffer')
-            const offer = await peerConnection.createOffer({iceRestart: false})
-            await peerConnection.setLocalDescription(offer)
-            await signalService.emit('offer', {type: offer.type, sdp: offer.sdp})
+        const messageReceiveOffer = async ({offer, sender}) => {
+            console.log('RTC', offer.type, sender)
+            if (!stream) {
+                console.log('Изображение экрана не установлено')
+                return
+            }
+            destroy()
+            initial()
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+            const answer = await peerConnection.createAnswer()
+            await peerConnection.setLocalDescription(answer)
+            // sio.emit('answer', answer)
         }
-        const messageReceiveAnswer = ({answer, sender}) => peerConnection
-            .setRemoteDescription(new RTCSessionDescription(answer))
-            .then(() => console.log(answer.type, sender))
-            .catch(err=> {
-                console.log(err)
-                destroy()
-            })
-        console.log(getRoot(self))
         return {
             afterCreate() {
-                signalService = getRoot(self)['signalService']
-                console.log(getRoot(self), signalService)
                 addMiddleware(self, logMiddleware)
+                // sio.on('offer', messageReceiveOffer)
             },
             beforeDestroy() {
                 destroy()
             },
-            start() {
-                destroy()
-                initial()
-                messageSendOffer()
-                    .then(() => signalService.on('answer', messageReceiveAnswer))
-                    .catch(error => console.log(error))
+            shareScreen() {
+                navigator.mediaDevices.getDisplayMedia({
+                    video: {displaySurface: "browser"},
+                    audio: true
+                })
+                    .then(videoStream => stream = videoStream)
+                    .catch(error => console.error(error))
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
-                if (event.target.connectionState === 'close')
-                    destroy()
-                if (self.connection === ' failed')
-                    console.log(peerConnection, dataChannel)
             },
             changeStateDataChannel(event) {
                 self.dataChannel = event.type
-                if (self.dataChannel === 'close') {
-                    destroy()
-                    self['connection'] = 'new'
-                }
-
             },
             changeStateIceGathering(event) {
                 self.iceGathering = event.target.iceGatheringState
@@ -184,27 +169,28 @@ const RTCModelClient = types
                     // sio.emit('candidate', event.candidate)
                 }
             },
-            setTrack(event) {
-                const {videoRef} = self
-                if (!videoRef.srcObject)
-                    videoRef.srcObject = event.streams[0]
-            },
             receiveData(event) {
                 self.data = event.data
             },
             sendData(data) {
                 if (data.length && dataChannel)
                     dataChannel.send(data)
+            },
+            showPreview() {
+                self['videoRef'].srcObject = stream
+                self['videoRef'].style.display = 'flex'
+                self.preview = true
+            },
+            hidePreview() {
+                self['videoRef'].srcObject = null
+                self['videoRef'].style.display = 'none'
+                self.preview = false
             }
         }
     })
     .views(self => ({
         get videoRef() {
             return document.getElementById(String(self.id))
-        },
-        get service() {
-            let {signalService} = getRoot(self)
-            return signalService
         }
     }))
-export default RTCModelClient
+export default atomScreenShare

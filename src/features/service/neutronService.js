@@ -3,8 +3,9 @@ import {addDoc, collection, getFirestore, onSnapshot} from "firebase/firestore"
 import {initializeApp} from "firebase/app"
 
 
-export const modelSignalService = types
+const neutronService = types
     .model({
+        id: types.identifier,
         config: types.frozen({})
     })
     .volatile(self => ({}))
@@ -43,3 +44,4 @@ export const modelSignalService = types
             }),
         }
     })
+export default neutronService

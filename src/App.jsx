@@ -1,20 +1,32 @@
-import {Box, Link as MUILink} from "@mui/material"
-import {Link} from "react-router-dom"
+import {createBrowserRouter, RouterProvider} from "react-router-dom"
 import React from "react"
+import ScreenMirror from "./molecule/ScreenMirror"
+import ScreenShare from "./molecule/ScreenShare"
+import {inject} from "mobx-react"
+import Home from "./molecule/Home"
 
-export const App = () => {
-    return <Box
-        sx={{
-            display: "flex",
-            flexDirection: "column",
-            p: 2,
-            gap: 2,
-        }}>
-        <MUILink component={Link} to={'/share'}>
-            Share
-        </MUILink>
-        <MUILink component={Link} to={'/client'}>
-            Client
-        </MUILink>
-    </Box>
+const App = ({everything}) => {
+    return <RouterProvider router={createBrowserRouter([
+        {
+            path: '/',
+            element: <Home/>
+        },
+        {
+            path: "/client",
+            element: <ScreenMirror store={everything.atom.screenMirror}/>,
+        },
+        {
+            path: "/share",
+            loader: async () => {
+                try {
+                    await everything.atom.screenShare.shareScreen()
+                    return true
+                } catch (e) {
+                    return false
+                }
+            },
+            element: <ScreenShare store={everything.atom.screenShare}/>,
+        },
+    ])}/>
 }
+export default inject('everything')(App)

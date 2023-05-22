@@ -1,6 +1,6 @@
-# Getting Started with Create React Client
+# Getting Started with Create React ScreenMirror
 
-This project was bootstrapped with [Create React Client](https://github.com/facebook/create-react-app).
+This project was bootstrapped with [Create React ScreenMirror](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
 
@@ -41,7 +41,7 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 
 ## Learn More
 
-You can learn more in the [Create React Client documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+You can learn more in the [Create React ScreenMirror documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
 To learn React, check out the [React documentation](https://reactjs.org/).
 
@@ -53,7 +53,7 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/c
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
 
-### Making a Progressive Web Client
+### Making a Progressive Web ScreenMirror
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
 
