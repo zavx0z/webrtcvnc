@@ -1,5 +1,4 @@
-import {addMiddleware, types} from "mobx-state-tree"
-import {io} from "socket.io-client"
+import {addMiddleware, getRoot, types} from "mobx-state-tree"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
 
@@ -65,7 +64,8 @@ const RTCModelClient = types
         candidate: null,
     }))
     .actions(self => {
-        const sio = io(String(self.signalServerAddress), {transports: ["websocket"]})
+        // const sio = io(String(self.signalServerAddress), {transports: ["websocket"]})
+        let signalService
         let peerConnection
         const createPeerConnection = () => {
             peerConnection = new RTCPeerConnection({iceServers: freeice()})
@@ -121,16 +121,16 @@ const RTCModelClient = types
             dataChannel && destroyDataChannel()
             if (self['videoRef'].srcObject)
                 self['videoRef'].srcObject = null
-            sio.off('answer', messageReceiveAnswer)
-            sio.off('candidate', self['receiveCandidate'])
-            sio.on('candidate', self['receiveCandidate'])
+            // sio.off('answer', messageReceiveAnswer)
+            // sio.off('candidate', self['receiveCandidate'])
+            // sio.on('candidate', self['receiveCandidate'])
         }
         // ================================================================================================
         const messageSendOffer = async () => {
             console.log('sendOffer')
             const offer = await peerConnection.createOffer({iceRestart: false})
             await peerConnection.setLocalDescription(offer)
-            sio.emit('offer', offer)
+            await signalService.emit('offer', {type: offer.type, sdp: offer.sdp})
         }
         const messageReceiveAnswer = ({answer, sender}) => peerConnection
             .setRemoteDescription(new RTCSessionDescription(answer))
@@ -139,8 +139,11 @@ const RTCModelClient = types
                 console.log(err)
                 destroy()
             })
+        console.log(getRoot(self))
         return {
             afterCreate() {
+                signalService = getRoot(self)['signalService']
+                console.log(getRoot(self), signalService)
                 addMiddleware(self, logMiddleware)
             },
             beforeDestroy() {
@@ -149,8 +152,9 @@ const RTCModelClient = types
             start() {
                 destroy()
                 initial()
-                sio.on('answer', messageReceiveAnswer)
-                messageSendOffer().catch(error => console.log(error))
+                messageSendOffer()
+                    .then(() => signalService.on('answer', messageReceiveAnswer))
+                    .catch(error => console.log(error))
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
@@ -177,7 +181,7 @@ const RTCModelClient = types
             sendCandidate(event) {
                 if (event.candidate?.candidate) {
                     self.candidate = event.candidate.candidate
-                    sio.emit('candidate', event.candidate)
+                    // sio.emit('candidate', event.candidate)
                 }
             },
             setTrack(event) {
@@ -197,6 +201,10 @@ const RTCModelClient = types
     .views(self => ({
         get videoRef() {
             return document.getElementById(String(self.id))
+        },
+        get service() {
+            let {signalService} = getRoot(self)
+            return signalService
         }
     }))
 export default RTCModelClient

@@ -1,5 +1,4 @@
 import {addMiddleware, types} from "mobx-state-tree"
-import {io} from "socket.io-client"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
 
@@ -66,7 +65,7 @@ const RTCModelShare = types
         data: null,
     }))
     .actions(self => {
-        const sio = io(String(self.signalServerAddress), {transports: ["websocket"]})
+        // const sio = io(String(self.signalServerAddress), {transports: ["websocket"]})
         let peerConnection
         const createPeerConnection = () => {
             peerConnection = new RTCPeerConnection({iceServers: freeice()})
@@ -76,7 +75,7 @@ const RTCModelShare = types
             peerConnection.addEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.addEventListener('icecandidate', self['sendCandidate'])
             peerConnection.addEventListener('track', self['setTrack'])
-            sio.on('candidate', self['receiveCandidate'])
+            // sio.on('candidate', self['receiveCandidate'])
         }
         const destroyPeerConnection = () => {
             peerConnection.removeEventListener("icegatheringstatechange", self['changeStateIceGathering'])
@@ -85,7 +84,7 @@ const RTCModelShare = types
             peerConnection.removeEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.removeEventListener('icecandidate', self['sendCandidate'])
             peerConnection.removeEventListener('track', self['setTrack'])
-            sio.off('candidate', self['receiveCandidate'])
+            // sio.off('candidate', self['receiveCandidate'])
             peerConnection = null
         }
         let dataChannel
@@ -130,13 +129,13 @@ const RTCModelShare = types
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
             const answer = await peerConnection.createAnswer()
             await peerConnection.setLocalDescription(answer)
-            sio.emit('answer', answer)
+            // sio.emit('answer', answer)
         }
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
-                sio.on('offer', messageReceiveOffer)
-                this.shareScreen()
+                // sio.on('offer', messageReceiveOffer)
+                // this.shareScreen()
             },
             beforeDestroy() {
                 destroy()
@@ -145,7 +144,9 @@ const RTCModelShare = types
                 navigator.mediaDevices.getDisplayMedia({
                     video: {displaySurface: "browser"},
                     audio: true
-                }).then(videoStream => stream = videoStream)
+                })
+                    .then(videoStream => stream = videoStream)
+                    .catch(error => console.error(error))
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
@@ -163,7 +164,7 @@ const RTCModelShare = types
             sendCandidate(event) {
                 if (event.candidate?.candidate) {
                     self.candidate = event.candidate.candidate
-                    sio.emit('candidate', event.candidate)
+                    // sio.emit('candidate', event.candidate)
                 }
             },
 
