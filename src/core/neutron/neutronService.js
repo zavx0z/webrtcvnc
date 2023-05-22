@@ -1,7 +1,26 @@
-import {flow, types} from "mobx-state-tree"
+import {addMiddleware, flow, types} from "mobx-state-tree"
 import {addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot} from "firebase/firestore"
 import {initializeApp} from "firebase/app"
 
+const logMiddleware = (call, next) => {
+    const moduleName = 'FS'
+    switch (call.name) {
+        case 'off':
+            if (call.type === "flow_return")
+                console.log(moduleName, call.name, call.parentEvent.args[0])
+            break
+        case 'on':
+            if (call.type === "flow_resume")
+                console.log(moduleName, call.name, call.parentEvent.args[0])
+            break
+        case 'emit':
+            console.log(moduleName, call.name, call.args[0])
+            break
+        default:
+            break
+    }
+    next(call)
+}
 
 const neutronService = types
     .model({
@@ -17,66 +36,29 @@ const neutronService = types
         let candidateEventHandler
         return {
             afterCreate() {
+                addMiddleware(self, logMiddleware)
                 self.db = getFirestore(initializeApp(self.config))
+                self.off('offer')
+                self.off('answer')
+                self.off('candidate')
             },
-            emit: flow(function* emit(actionType, arg) {
-                switch (actionType) {
-                    case "offer":
-                        const offer = {type: arg.type, sdp: arg.sdp}
-                        yield addDoc(collection(self.db, "offer"), offer)
-                        break
-                    case "answer":
-                        const answer = {type: arg.type, sdp: arg.sdp}
-                        yield addDoc(collection(self.db, "answer"), answer)
-                        break
-                    case "candidate":
-                        console.log(arg)
-                        yield addDoc(collection(self.db, "candidate"), arg)
-                        break
-                    default:
-                        break
-                }
-            }),
+            async emit(actionType, arg) {
+                await addDoc(collection(self.db, actionType), arg)
+            },
             on: flow(function* on(actionType, callback) {
-                switch (actionType) {
-                    case "answer":
-                        const oldAnswers = yield getDocs(collection(self.db, "answer"))
-                        oldAnswers.forEach(document => deleteDoc(doc(self.db, 'answer', document.id)))
-
-                        answerEventHandler = onSnapshot(collection(self.db, "answer"), snapshot => {
-                            snapshot.docChanges().forEach(change => {
-                                if (change.type === "added")
-                                    callback(change.doc.data())
-                            })
-                        })
-                        break
-                    case "offer":
-                        const oldOffers = yield getDocs(collection(self.db, "offer"))
-                        oldOffers.forEach(document => deleteDoc(doc(self.db, 'offer', document.id)))
-
-                        offerEventHandler = onSnapshot(collection(self.db, "offer"), snapshot => {
-                            snapshot.docChanges().forEach(change => {
-                                if (change.type === "added")
-                                    callback(change.doc.data())
-                            })
-                        })
-                        break
-                    case "candidate":
-                        const oldCandidate = yield getDocs(collection(self.db, "candidate"))
-                        oldCandidate.forEach(document => deleteDoc(doc(self.db, 'candidate', document.id)))
-
-                        candidateEventHandler = onSnapshot(collection(self.db, "candidate"), snapshot => {
-                            snapshot.docChanges().forEach(change => {
-                                if (change.type === "added")
-                                    callback(change.doc.data())
-                            })
-                        })
-                        break
-                    default:
-                        break
-                }
+                answerEventHandler = onSnapshot(collection(self.db, actionType), snapshot => {
+                    snapshot.docChanges().forEach(change => {
+                        if (change.type === "added") {
+                            const data = change.doc.data()
+                            callback(data)
+                            // deleteDoc(doc(self.db, change.doc.id)).finally()
+                        }
+                    })
+                })
             }),
-            off(actionType) {
+            off: flow(function* off(actionType) {
+                const oldItems = yield getDocs(collection(self.db, actionType))
+                oldItems.forEach(document => deleteDoc(doc(self.db, actionType, document.id)))
                 switch (actionType) {
                     case "offer":
                         offerEventHandler && offerEventHandler()
@@ -90,7 +72,7 @@ const neutronService = types
                     default:
                         break
                 }
-            }
+            })
         }
     })
 export default neutronService

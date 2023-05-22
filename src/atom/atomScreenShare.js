@@ -2,12 +2,19 @@ import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
 import neutronService from "../core/neutron/neutronService"
+import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
 
 console.log(adapter.browserDetails.browser, adapter.browserDetails.version)
-const logMiddleware = (call, next) => {
+const logMiddleware = (call, next, abort) => {
     const moduleName = 'RTC'
     const arg = call.args[0]
     switch (call.name) {
+        case 'setSenderUserNameFragment':
+            console.log(moduleName, call.name, arg)
+            break
+        case 'setUserNameFragment':
+            console.log(moduleName, call.name, arg)
+            break
         case 'changeStateConnection':
             console.log(moduleName, call.name, arg.target.connectionState)
             break
@@ -18,11 +25,14 @@ const logMiddleware = (call, next) => {
             console.log(moduleName, call.name, arg.target.iceGatheringState)
             break
         case 'receiveCandidate':
-            console.log(moduleName, call.name, arg['iceCandidate'].candidate)
+            if (arg.usernameFragment !== call.context.senderUsernameFragment)
+                return abort('not senderUsernameFragment equal')
+            else
+                console.log(moduleName, call.name, `from: ${arg.usernameFragment}`)
             break
         case 'sendCandidate':
             if (arg.candidate?.candidate)
-                console.log(moduleName, call.name, arg.candidate.candidate)
+                console.log(moduleName, call.name, `from: ${arg.candidate.usernameFragment}`)
             break
         case 'setTrack':
             console.log(moduleName, call.name, arg.track.label)
@@ -64,8 +74,9 @@ const atomScreenShare = types
         preview: false
     })
     .volatile(self => ({
-        candidate: null,
         data: null,
+        usernameFragment: null,
+        senderUsernameFragment: null,
     }))
     .actions(self => {
         let peerConnection
@@ -108,11 +119,6 @@ const atomScreenShare = types
         }
         // ------------------------------------------------------------------------------------------------
         let stream
-        const initial = () => {
-            createPeerConnection()
-            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
-            createDataChannel()
-        }
         const destroy = () => {
             peerConnection && destroyPeerConnection()
             dataChannel && destroyDataChannel()
@@ -120,26 +126,38 @@ const atomScreenShare = types
             self.core.signalService.off('candidate', self['receiveCandidate'])
         }
         // ================================================================================================
-        const messageReceiveOffer = async (offer) => {
-            console.log('RTC', offer.type)
+        const messageReceiveOffer = async offer => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+            self['setSenderUserNameFragment'](usernameFragmentFromOffer(offer))
+            const answer = await peerConnection.createAnswer()
+            await peerConnection.setLocalDescription(answer)
+            self['setUserNameFragment'](usernameFragmentFromOffer(answer))
+            self.core.signalService.emit('answer', answer.toJSON())
+        }
+        const initialization = async () => {
             if (!stream) {
                 console.log('Изображение экрана не установлено')
                 return
             }
-            destroy()
-            initial()
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-            const answer = await peerConnection.createAnswer()
-            await peerConnection.setLocalDescription(answer)
-            self.core.signalService.emit('answer', answer)
+            // destroy()
+            createPeerConnection()
+            createDataChannel()
+            self.core.signalService.on('offer', messageReceiveOffer)
+            self.core.signalService.on('candidate', self['receiveCandidate'])
+            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
         }
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
-
             },
             beforeDestroy() {
                 destroy()
+            },
+            setUserNameFragment(username) {
+                self.usernameFragment = username
+            },
+            setSenderUserNameFragment(username) {
+                self.senderUsernameFragment = username
             },
             shareScreen() {
                 navigator.mediaDevices.getDisplayMedia({
@@ -147,11 +165,15 @@ const atomScreenShare = types
                     audio: true
                 })
                     .then(videoStream => stream = videoStream)
-                    .then(() => self.core.signalService.on('offer', messageReceiveOffer))
+                    .then(initialization)
                     .catch(error => console.error(error))
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
+                if (event.target.connectionState === 'close')
+                    destroy()
+                if (self.connection === ' failed')
+                    destroy()
             },
             changeStateDataChannel(event) {
                 self.dataChannel = event.type
@@ -159,14 +181,13 @@ const atomScreenShare = types
             changeStateIceGathering(event) {
                 self.iceGathering = event.target.iceGatheringState
             },
-            receiveCandidate({iceCandidate, sender}) {
+            receiveCandidate(iceCandidate) {
                 peerConnection.addIceCandidate(iceCandidate)
                     .catch(err => console.error('Error adding received ice candidate', err))
             },
             sendCandidate(event) {
                 if (event.candidate?.candidate) {
-                    self.candidate = event.candidate.candidate
-                    self.core.signalService.emit('candidate', event.candidate)
+                    self.core.signalService.emit('candidate', event.candidate.toJSON())
                 }
             },
             receiveData(event) {

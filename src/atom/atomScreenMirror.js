@@ -2,12 +2,20 @@ import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
 import neutronService from "../core/neutron/neutronService"
+import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
+
 
 console.log(adapter.browserDetails.browser, adapter.browserDetails.version)
-const logMiddleware = (call, next) => {
+const logMiddleware = (call, next, abort) => {
     const moduleName = 'RTC'
     const arg = call.args[0]
     switch (call.name) {
+        case 'setSenderUserNameFragment':
+            console.log(moduleName, call.name, arg)
+            break
+        case 'setUserNameFragment':
+            console.log(moduleName, call.name, arg)
+            break
         case 'changeStateConnection':
             console.log(moduleName, call.name, arg.target.connectionState)
             break
@@ -18,11 +26,14 @@ const logMiddleware = (call, next) => {
             console.log(moduleName, call.name, arg.target.iceGatheringState)
             break
         case 'receiveCandidate':
-            console.log(moduleName, call.name, arg['iceCandidate'].candidate)
+            if (arg.usernameFragment !== call.context.senderUsernameFragment)
+                return abort('not senderUsernameFragment equal')
+            else
+                console.log(moduleName, call.name, `from: ${arg.usernameFragment}`)
             break
         case 'sendCandidate':
             if (arg.candidate?.candidate)
-                console.log(moduleName, call.name, arg.candidate.candidate)
+                console.log(moduleName, call.name, `from: ${arg.candidate.usernameFragment}`)
             break
         case 'setTrack':
             console.log(moduleName, call.name, arg.track.label)
@@ -64,7 +75,8 @@ const atomScreenMirror = types
     })
     .volatile(self => ({
         data: null,
-        candidate: null,
+        usernameFragment: null,
+        senderUsernameFragment: null,
     }))
     .actions(self => {
         let peerConnection
@@ -107,11 +119,12 @@ const atomScreenMirror = types
             self['dataChannel'] = 'close'
         }
         // ------------------------------------------------------------------------------------------------
-        const initial = () => {
+        const initialization = () => {
             createPeerConnection()
             createDataChannel()
             peerConnection.addTransceiver("video", {direction: "recvonly"})
             peerConnection.addTransceiver("audio", {direction: "recvonly"})
+            self.core.signalService.on('candidate', self['receiveCandidate'])
         }
         const destroy = () => {
             console.log('destroy!')
@@ -124,18 +137,22 @@ const atomScreenMirror = types
         }
         // ================================================================================================
         const messageSendOffer = async () => {
-            console.log('sendOffer')
             const offer = await peerConnection.createOffer({iceRestart: false})
             await peerConnection.setLocalDescription(offer)
-            await self.core.signalService.emit('offer', offer)
+            console.log(peerConnection)
+            self['setUserNameFragment'](usernameFragmentFromOffer(offer))
+            self.core.signalService.emit('offer', offer)
         }
-        const messageReceiveAnswer = answer => peerConnection
-            .setRemoteDescription(new RTCSessionDescription(answer))
-            .then(() => console.log(answer.type))
-            .catch(err => {
-                console.log(err)
-                destroy()
-            })
+        const messageReceiveAnswer = answer => {
+            console.log(answer)
+            peerConnection
+                .setRemoteDescription(new RTCSessionDescription(answer))
+                .then(() => self['setSenderUserNameFragment'](usernameFragmentFromOffer(answer)))
+                .catch(err => {
+                    console.log(err)
+                    destroy()
+                })
+        }
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
@@ -144,18 +161,23 @@ const atomScreenMirror = types
                 destroy()
             },
             start() {
-                destroy()
-                initial()
+                initialization()
                 messageSendOffer()
                     .then(() => self.core.signalService.on('answer', messageReceiveAnswer))
                     .catch(error => console.log(error))
+            },
+            setUserNameFragment(username) {
+                self.usernameFragment = username
+            },
+            setSenderUserNameFragment(username) {
+                self.senderUsernameFragment = username
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
                 if (event.target.connectionState === 'close')
                     destroy()
                 if (self.connection === ' failed')
-                    console.log(peerConnection, dataChannel)
+                    destroy()
             },
             changeStateDataChannel(event) {
                 self.dataChannel = event.type
@@ -168,14 +190,13 @@ const atomScreenMirror = types
             changeStateIceGathering(event) {
                 self.iceGathering = event.target.iceGatheringState
             },
-            receiveCandidate({iceCandidate, sender}) {
+            receiveCandidate(iceCandidate) {
                 peerConnection.addIceCandidate(iceCandidate)
                     .catch(err => console.error('Error adding received ice candidate', err))
             },
             sendCandidate(event) {
                 if (event.candidate?.candidate) {
-                    self.candidate = event.candidate.candidate
-                    self.core.signalService.emit('candidate', event.candidate)
+                    self.core.signalService.emit('candidate', event.candidate.toJSON())
                 }
             },
             setTrack(event) {
