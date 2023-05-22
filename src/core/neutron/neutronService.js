@@ -14,6 +14,7 @@ const neutronService = types
     .actions(self => {
         let offerEventHandler
         let answerEventHandler
+        let candidateEventHandler
         return {
             afterCreate() {
                 self.db = getFirestore(initializeApp(self.config))
@@ -27,6 +28,10 @@ const neutronService = types
                     case "answer":
                         const answer = {type: arg.type, sdp: arg.sdp}
                         yield addDoc(collection(self.db, "answer"), answer)
+                        break
+                    case "candidate":
+                        console.log(arg)
+                        yield addDoc(collection(self.db, "candidate"), arg)
                         break
                     default:
                         break
@@ -56,6 +61,17 @@ const neutronService = types
                             })
                         })
                         break
+                    case "candidate":
+                        const oldCandidate = yield getDocs(collection(self.db, "candidate"))
+                        oldCandidate.forEach(document => deleteDoc(doc(self.db, 'candidate', document.id)))
+
+                        candidateEventHandler = onSnapshot(collection(self.db, "candidate"), snapshot => {
+                            snapshot.docChanges().forEach(change => {
+                                if (change.type === "added")
+                                    callback(change.doc.data())
+                            })
+                        })
+                        break
                     default:
                         break
                 }
@@ -67,6 +83,9 @@ const neutronService = types
                         break
                     case "answer":
                         answerEventHandler && answerEventHandler()
+                        break
+                    case "candidate":
+                        candidateEventHandler && candidateEventHandler()
                         break
                     default:
                         break

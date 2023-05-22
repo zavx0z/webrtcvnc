@@ -77,7 +77,6 @@ const atomScreenShare = types
             peerConnection.addEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.addEventListener('icecandidate', self['sendCandidate'])
             peerConnection.addEventListener('track', self['setTrack'])
-            // sio.on('candidate', self['receiveCandidate'])
         }
         const destroyPeerConnection = () => {
             peerConnection.removeEventListener("icegatheringstatechange", self['changeStateIceGathering'])
@@ -86,7 +85,6 @@ const atomScreenShare = types
             peerConnection.removeEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.removeEventListener('icecandidate', self['sendCandidate'])
             peerConnection.removeEventListener('track', self['setTrack'])
-            // sio.off('candidate', self['receiveCandidate'])
             peerConnection = null
         }
         let dataChannel
@@ -117,8 +115,9 @@ const atomScreenShare = types
         }
         const destroy = () => {
             peerConnection && destroyPeerConnection()
-            self.core.signalService.off('offer', messageReceiveOffer)
             dataChannel && destroyDataChannel()
+            self.core.signalService.off('offer', messageReceiveOffer)
+            self.core.signalService.off('candidate', self['receiveCandidate'])
         }
         // ================================================================================================
         const messageReceiveOffer = async (offer) => {
@@ -167,7 +166,7 @@ const atomScreenShare = types
             sendCandidate(event) {
                 if (event.candidate?.candidate) {
                     self.candidate = event.candidate.candidate
-                    // sio.emit('candidate', event.candidate)
+                    self.core.signalService.emit('candidate', event.candidate)
                 }
             },
             receiveData(event) {

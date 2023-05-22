@@ -1,4 +1,4 @@
-import {addMiddleware, getRoot, types} from "mobx-state-tree"
+import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
 import adapter from 'webrtc-adapter'
 import neutronService from "../core/neutron/neutronService"
@@ -106,9 +106,6 @@ const atomScreenMirror = types
             dataChannel = null
             self['dataChannel'] = 'close'
         }
-        const messageReceiveCandidate = ({iceCandidate, sender}) => peerConnection
-            .addIceCandidate(iceCandidate)
-            .catch(err => console.error('Error adding received ice candidate', err))
         // ------------------------------------------------------------------------------------------------
         const initial = () => {
             createPeerConnection()
@@ -123,8 +120,7 @@ const atomScreenMirror = types
             if (self['videoRef'].srcObject)
                 self['videoRef'].srcObject = null
             self.core.signalService.off('answer', messageReceiveAnswer)
-            // sio.off('candidate', self['receiveCandidate'])
-            // sio.on('candidate', self['receiveCandidate'])
+            self.core.signalService.off('candidate', self['receiveCandidate'])
         }
         // ================================================================================================
         const messageSendOffer = async () => {
@@ -179,7 +175,7 @@ const atomScreenMirror = types
             sendCandidate(event) {
                 if (event.candidate?.candidate) {
                     self.candidate = event.candidate.candidate
-                    // sio.emit('candidate', event.candidate)
+                    self.core.signalService.emit('candidate', event.candidate)
                 }
             },
             setTrack(event) {
