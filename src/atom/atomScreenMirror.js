@@ -7,7 +7,6 @@ import {logMiddleware} from "../core/proton/logMiddleware"
 const eventNegotiationNeeded = event => console.log('eventNegotiationNeeded', event)
 const atomScreenMirror = types
     .model('atomScreenMirror', {
-        id: types.identifier,
         core: types.model('atomScreenShareCore', {
             signalService: types.reference(neutronService)
         }),
@@ -20,7 +19,7 @@ const atomScreenMirror = types
             'failed',
             'connecting',
         ]), 'new'),
-        dataChannel: types.optional(types.enumeration('dataChannel', [
+        dataChannelStatus: types.optional(types.enumeration('dataChannel', [
             'bufferedamountlow',
             'closing',
             'error',
@@ -38,72 +37,79 @@ const atomScreenMirror = types
         data: null,
         usernameFragment: null,
         senderUsernameFragment: null,
+        peerConnection: null,
+        dataChannel: null,
     }))
     .actions(self => {
-        let peerConnection
         const createPeerConnection = () => {
-            peerConnection = new RTCPeerConnection({iceServers: freeice()})
+            const peerConnection = new RTCPeerConnection({iceServers: freeice()})
             peerConnection.addEventListener("icegatheringstatechange", self['changeStateIceGathering'])
             peerConnection.addEventListener('connectionstatechange', self['changeStateConnection'])
             peerConnection.addEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.addEventListener("negotiationneeded", eventNegotiationNeeded)
             peerConnection.addEventListener('icecandidate', self['sendCandidate'])
             peerConnection.addEventListener('track', self['setTrack'])
+            self.peerConnection = peerConnection
         }
         const destroyPeerConnection = () => {
+            const {peerConnection} = self
             peerConnection.removeEventListener("icegatheringstatechange", self['changeStateIceGathering'])
             peerConnection.removeEventListener('connectionstatechange', self['changeStateConnection'])
             peerConnection.removeEventListener('datachannel', self['changeStateDataChannel'])
             peerConnection.removeEventListener("negotiationneeded", eventNegotiationNeeded)
             peerConnection.removeEventListener('icecandidate', self['sendCandidate'])
             peerConnection.removeEventListener('track', self['setTrack'])
-            peerConnection = null
+            self.peerConnection = null
         }
-        let dataChannel
         const createDataChannel = () => {
-            dataChannel = peerConnection.createDataChannel('data', {negotiated: true, id: 0})
+            const {peerConnection} = self
+            const dataChannel = peerConnection.createDataChannel('data', {negotiated: true, id: 0})
             dataChannel.addEventListener('bufferedamountlow', self['changeStateDataChannel'])
             dataChannel.addEventListener('closing', self['changeStateDataChannel'])
             dataChannel.addEventListener('close', self['changeStateDataChannel'])
             dataChannel.addEventListener('error', self['changeStateDataChannel'])
             dataChannel.addEventListener('open', self['changeStateDataChannel'])
             dataChannel.addEventListener('message', self['receiveData'])
+            self.dataChannel = dataChannel
         }
         const destroyDataChannel = () => {
+            const {dataChannel} = self
             dataChannel.removeEventListener('bufferedamountlow', self['changeStateDataChannel'])
             dataChannel.removeEventListener('closing', self['changeStateDataChannel'])
             dataChannel.removeEventListener('close', self['changeStateDataChannel'])
             dataChannel.removeEventListener('error', self['changeStateDataChannel'])
             dataChannel.removeEventListener('open', self['changeStateDataChannel'])
             dataChannel.removeEventListener('message', self['receiveData'])
-            dataChannel = null
-            self['dataChannel'] = 'close'
+            self.dataChannel = null
         }
         // ------------------------------------------------------------------------------------------------
         const initialization = () => {
             createPeerConnection()
             createDataChannel()
+            const {peerConnection} = self
             peerConnection.addTransceiver("video", {direction: "recvonly"})
             peerConnection.addTransceiver("audio", {direction: "recvonly"})
             self.core.signalService.on('candidate', self['receiveCandidate'])
         }
         const destroy = () => {
+            const {peerConnection, dataChannel, destroyVideo, receiveCandidate, core: {signalService}} = self
             console.log('destroy!')
             peerConnection && destroyPeerConnection()
             dataChannel && destroyDataChannel()
-            self.destroyVideo()
-            self.core.signalService.off('answer', messageReceiveAnswer)
-            self.core.signalService.off('candidate', self['receiveCandidate'])
+            destroyVideo()
+            signalService.off('answer', messageReceiveAnswer)
+            signalService.off('candidate', receiveCandidate)
         }
         // ================================================================================================
         const messageSendOffer = async () => {
+            const {peerConnection} = self
             const offer = await peerConnection.createOffer({iceRestart: false})
             await peerConnection.setLocalDescription(offer)
-
             self['setUserNameFragment'](usernameFragmentFromOffer(offer))
             self.core.signalService.emit('offer', offer.toJSON())
         }
         const messageReceiveAnswer = answer => {
+            const {peerConnection} = self
             peerConnection
                 .setRemoteDescription(new RTCSessionDescription(answer))
                 .then(() => self['setSenderUserNameFragment'](usernameFragmentFromOffer(answer)))
@@ -118,10 +124,6 @@ const atomScreenMirror = types
             },
             beforeDestroy() {
                 destroy()
-            },
-            destroyVideo() {
-                if (self['videoRef'].srcObject)
-                    self['videoRef'].srcObject = null
             },
             start() {
                 initialization()
@@ -143,17 +145,17 @@ const atomScreenMirror = types
                     destroy()
             },
             changeStateDataChannel(event) {
-                self.dataChannel = event.type
-                if (self.dataChannel === 'close') {
+                self.dataChannelStatus = event.type
+                if (self.dataChannelStatus === 'close') {
                     destroy()
                     self['connection'] = 'new'
                 }
-
             },
             changeStateIceGathering(event) {
                 self.iceGathering = event.target.iceGatheringState
             },
             receiveCandidate(iceCandidate) {
+                const {peerConnection} = self
                 peerConnection.addIceCandidate(iceCandidate)
                     .catch(err => console.error('Error adding received ice candidate', err))
             },
@@ -162,32 +164,44 @@ const atomScreenMirror = types
                     self.core.signalService.emit('candidate', event.candidate.toJSON())
                 }
             },
-            setTrack(event) {
-                const {videoRef} = self
-                if (!videoRef.srcObject) {
-                    const stream = event.streams[0]
-                    videoRef.srcObject = stream
-                    const track = stream.getTracks()[0]
-                    // Устанавливаем обработчики событий на объект MediaStreamTrack
-                    track.onended = () => console.log('Трек закончил воспроизведение')
-                    track.onmute = () => console.log('Трек был выключен')
-                    track.onunmute = () => console.log('Трек был включен')
-                    track.onisolationchange = () => console.log('Трек был изолирован или отключен')
-                    track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
-                }
-            },
             receiveData(event) {
                 self.data = event.data
             },
             sendData(data) {
+                const {dataChannel} = self
                 if (data.length && dataChannel)
                     dataChannel.send(data)
             }
         }
     })
+const modelScreen = types
+    .model('screenReceiver', {
+        id: types.identifier,
+    })
+    .actions(self => ({
+        setTrack(event) {
+            const {videoRef} = self
+            if (!videoRef.srcObject) {
+                const stream = event.streams[0]
+                videoRef.srcObject = stream
+                const track = stream.getTracks()[0] // todo get videoTrack
+                // Устанавливаем обработчики событий на объект MediaStreamTrack
+                track.onended = () => console.log('Трек закончил воспроизведение')
+                // track.onmute = () => console.log('Трек был выключен')
+                // track.onunmute = () => console.log('Трек был включен')
+                track.onisolationchange = () => console.log('Трек был изолирован или отключен')
+                track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
+            }
+        },
+        destroyVideo() {
+            const {videoRef} = self
+            if (videoRef.srcObject)
+                videoRef.srcObject = null
+        },
+    }))
     .views(self => ({
         get videoRef() {
             return document.getElementById(String(self.id))
         }
     }))
-export default atomScreenMirror
+export default types.compose('atomScreenMirror', atomScreenMirror, modelScreen)

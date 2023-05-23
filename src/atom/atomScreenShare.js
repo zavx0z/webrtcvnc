@@ -1,13 +1,9 @@
-import {addMiddleware, flow, getRoot, types} from "mobx-state-tree"
+import {addMiddleware, flow, types} from "mobx-state-tree"
 import freeice from "freeice"
 import neutronService from "../core/neutron/neutronService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
 import {logMiddleware} from "../core/proton/logMiddleware"
 
-const videoMiddleware = (call, next) => {
-    console.log(call.name)
-    next(call)
-}
 const eventNegotiationNeeded = event => console.log(event.type)
 const atomScreenShare = types
     .model({
@@ -100,29 +96,27 @@ const atomScreenShare = types
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
-                addMiddleware(getRoot(self), videoMiddleware)
             },
             beforeDestroy() {
                 destroy()
+            },
+            initialization() {
+                const {stream, captured} = self
+                if (!captured) {
+                    console.error('Изображение экрана не установлено')
+                    return
+                }
+                createPeerConnection()
+                createDataChannel()
+                self.core.signalService.on('offer', messageReceiveOffer)
+                self.core.signalService.on('candidate', self['receiveCandidate'])
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
             },
             setUserNameFragment(username) {
                 self.usernameFragment = username
             },
             setSenderUserNameFragment(username) {
                 self.senderUsernameFragment = username
-            },
-            initialization() {
-                const {stream} = self
-                if (!stream) {
-                    console.log('Изображение экрана не установлено')
-                    return
-                }
-                // destroy()
-                createPeerConnection()
-                createDataChannel()
-                self.core.signalService.on('offer', messageReceiveOffer)
-                self.core.signalService.on('candidate', self['receiveCandidate'])
-                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
@@ -133,6 +127,10 @@ const atomScreenShare = types
             },
             changeStateDataChannel(event) {
                 self.dataChannel = event.type
+                if (self.dataChannel === 'close') {
+                    destroy()
+                    self['connection'] = 'new'
+                }
             },
             changeStateIceGathering(event) {
                 self.iceGathering = event.target.iceGatheringState
@@ -189,14 +187,14 @@ const modelScreen = types
                 video: {displaySurface: "browser"},
                 audio: true
             })
-            const track = stream.getTracks()[0]
+            const track = stream.getTracks()[0] // todo get videoTrack
             // Устанавливаем обработчики событий на объект MediaStreamTrack
             track.onended = () => {
                 console.log('Трек закончил воспроизведение')
                 self.hidePreview()
             }
-            track.onmute = () => console.log('Трек был выключен')
-            track.onunmute = () => console.log('Трек был включен')
+            // track.onmute = () => console.log('Трек был выключен')
+            // track.onunmute = () => console.log('Трек был включен')
             track.onisolationchange = () => console.log('Трек был изолирован или отключен')
             track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
             self.stream = stream

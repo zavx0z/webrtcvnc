@@ -26,7 +26,7 @@ const DataChannel = ({RTC}) => {
                         Статус подключения
                     </TableCell>
                     <TableCell>
-                        {RTC.dataChannel}
+                        {RTC.dataChannelStatus}
                     </TableCell>
                 </TableRow>
             </TableBody>
