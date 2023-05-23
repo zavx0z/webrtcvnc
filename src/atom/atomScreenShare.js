@@ -1,16 +1,18 @@
-import {addMiddleware, types} from "mobx-state-tree"
+import {addMiddleware, flow, getRoot, types} from "mobx-state-tree"
 import freeice from "freeice"
 import neutronService from "../core/neutron/neutronService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
 import {logMiddleware} from "../core/proton/logMiddleware"
 
-
+const videoMiddleware = (call, next) => {
+    console.log(call.name)
+    next(call)
+}
 const eventNegotiationNeeded = event => console.log(event.type)
 const atomScreenShare = types
-    .model('atomScreenShare', {
-        id: types.identifier,
+    .model({
         core: types.model('atomScreenShareCore', {
-           signalService: types.reference(neutronService)
+            signalService: types.reference(neutronService)
         }),
         connection: types.optional(types.enumeration('состояние соединения', [
             'new',
@@ -34,7 +36,6 @@ const atomScreenShare = types
             'gathering',
             'complete'
         ]), 'new'),
-        preview: false
     })
     .volatile(self => ({
         data: null,
@@ -81,7 +82,6 @@ const atomScreenShare = types
             dataChannel = null
         }
         // ------------------------------------------------------------------------------------------------
-        let stream
         const destroy = () => {
             peerConnection && destroyPeerConnection()
             dataChannel && destroyDataChannel()
@@ -97,21 +97,10 @@ const atomScreenShare = types
             self['setUserNameFragment'](usernameFragmentFromOffer(answer))
             self.core.signalService.emit('answer', answer.toJSON())
         }
-        const initialization = async () => {
-            if (!stream) {
-                console.log('Изображение экрана не установлено')
-                return
-            }
-            // destroy()
-            createPeerConnection()
-            createDataChannel()
-            self.core.signalService.on('offer', messageReceiveOffer)
-            self.core.signalService.on('candidate', self['receiveCandidate'])
-            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
-        }
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
+                addMiddleware(getRoot(self), videoMiddleware)
             },
             beforeDestroy() {
                 destroy()
@@ -122,23 +111,18 @@ const atomScreenShare = types
             setSenderUserNameFragment(username) {
                 self.senderUsernameFragment = username
             },
-            shareScreen() {
-                navigator.mediaDevices.getDisplayMedia({
-                    video: {displaySurface: "browser"},
-                    audio: true
-                })
-                    .then(videoStream => {
-                        stream = videoStream
-                        const track = stream.getTracks()[0]
-                        // Устанавливаем обработчики событий на объект MediaStreamTrack
-                        track.onended = () => console.log('Трек закончил воспроизведение')
-                        track.onmute = () => console.log('Трек был выключен')
-                        track.onunmute = () => console.log('Трек был включен')
-                        track.onisolationchange = () => console.log('Трек был изолирован или отключен')
-                        track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
-                    })
-                    .then(initialization)
-                    .catch(error => console.error(error))
+            initialization() {
+                const {stream} = self
+                if (!stream) {
+                    console.log('Изображение экрана не установлено')
+                    return
+                }
+                // destroy()
+                createPeerConnection()
+                createDataChannel()
+                self.core.signalService.on('offer', messageReceiveOffer)
+                self.core.signalService.on('candidate', self['receiveCandidate'])
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
             },
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
@@ -169,21 +153,64 @@ const atomScreenShare = types
                 if (data.length && dataChannel)
                     dataChannel.send(data)
             },
-            showPreview() {
-                self['videoRef'].srcObject = stream
-                self['videoRef'].style.display = 'flex'
-                self.preview = true
-            },
-            hidePreview() {
-                self['videoRef'].srcObject = null
-                self['videoRef'].style.display = 'none'
-                self.preview = false
-            }
+
         }
     })
+
+
+const modelScreen = types
+    .model('screenCapture', {
+        id: types.identifier,
+        preview: types.optional(types.boolean, false),
+    })
+    .volatile(self => ({
+        stream: null,
+        captured: false,
+    }))
+    .actions(self => ({
+        showPreview() {
+            const {videoRef, stream} = self
+            videoRef.srcObject = stream
+            videoRef.style.display = 'flex'
+            self.preview = true
+        },
+        hidePreview() {
+            const {videoRef} = self
+            videoRef.srcObject = null
+            videoRef.style.display = 'none'
+            self.preview = false
+        },
+        screenCaptureStop() {
+            self.stream.getTracks().forEach(track => track.stop())
+            self.captured = false
+        },
+        screenCaptureStart: flow(function* () {
+            const stream = yield navigator.mediaDevices.getDisplayMedia({
+                video: {displaySurface: "browser"},
+                audio: true
+            })
+            const track = stream.getTracks()[0]
+            // Устанавливаем обработчики событий на объект MediaStreamTrack
+            track.onended = () => {
+                console.log('Трек закончил воспроизведение')
+                self.hidePreview()
+            }
+            track.onmute = () => console.log('Трек был выключен')
+            track.onunmute = () => console.log('Трек был включен')
+            track.onisolationchange = () => console.log('Трек был изолирован или отключен')
+            track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
+            self.stream = stream
+            self.captured = true
+            if (self.preview)
+                self.showPreview()
+        }),
+
+    }))
     .views(self => ({
         get videoRef() {
             return document.getElementById(String(self.id))
         }
     }))
-export default atomScreenShare
+
+
+export default types.compose('atomScreenShare', atomScreenShare, modelScreen)

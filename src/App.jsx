@@ -19,7 +19,8 @@ const App = ({everything}) => {
             path: "/share",
             loader: async () => {
                 try {
-                    await everything.atom.screenShare.shareScreen()
+                    await everything.atom.screenShare.screenCaptureStart()
+                    everything.atom.screenShare.initialization()
                     return true
                 } catch (e) {
                     return false

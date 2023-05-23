@@ -37,10 +37,8 @@ const neutronService = types
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
-                self.db = getFirestore(initializeApp(self.config))
-                self.off('offer')
-                self.off('answer')
-                self.off('candidate')
+                self.db = getFirestore(initializeApp(self.config));
+                (['offer', 'answer', 'candidate']).forEach(self['off'])
             },
             async emit(actionType, arg) {
                 await addDoc(collection(self.db, actionType), arg)

@@ -1,4 +1,5 @@
-import {Button, Paper} from "@mui/material"
+import {IconButton, Paper} from "@mui/material"
+import {CancelPresentation, PresentToAll, Visibility, VisibilityOff} from "@mui/icons-material"
 import {observer} from "mobx-react"
 import React from "react"
 import Info from "../../../electron/Info"
@@ -15,15 +16,16 @@ const Container = ({children}) => <Paper sx={theme => ({
 
 const Statistics = ({RTC}) => <Container>
     <Info RTC={RTC}/>
-    <Button
-        fullWidth
-        size="small"
-        variant={"contained"}
-        color={'success'}
+    <IconButton
+        disabled={!RTC.captured}
         onClick={RTC.preview ? RTC.hidePreview : RTC.showPreview}
-        disabled={RTC.connection === 'connected'}
     >
-        {RTC.preview ? "Скрыть " : "Показать "}превью видео
-    </Button>
+        {RTC.preview ? <VisibilityOff/> : <Visibility/>}
+    </IconButton>
+    <IconButton
+        onClick={RTC.captured ? RTC.screenCaptureStop : RTC.screenCaptureStart}
+    >
+        {RTC.captured ? <CancelPresentation/> : <PresentToAll/>}
+    </IconButton>
 </Container>
 export default observer(Statistics)
