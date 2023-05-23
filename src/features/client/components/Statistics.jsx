@@ -1,10 +1,11 @@
-import {Button, Paper, Table, TableBody, TableCell, TableRow} from "@mui/material"
+import {Button, Paper} from "@mui/material"
 import {observer} from "mobx-react"
 import React from "react"
+import Info from "../../../electron/Info"
 
 const Container = ({children}) => <Paper sx={theme => ({
     position: 'absolute',
-    bottom: theme.spacing(1),
+    top: theme.spacing(1),
     right: theme.spacing(1),
     width: theme.spacing(40),
     padding: theme.spacing(1),
@@ -12,28 +13,9 @@ const Container = ({children}) => <Paper sx={theme => ({
     {children}
 </Paper>
 
-const Statistics = ({RTC}) => {
-    return <Container>
-        <Table size={'small'}>
-            <TableBody>
-                <TableRow>
-                    <TableCell>
-                        Статус подключения
-                    </TableCell>
-                    <TableCell>
-                        {RTC.connection}
-                    </TableCell>
-                </TableRow>
-                <TableRow>
-                    <TableCell>
-                        iceGathering
-                    </TableCell>
-                    <TableCell>
-                        {RTC.iceGathering}
-                    </TableCell>
-                </TableRow>
-            </TableBody>
-        </Table>
+const Statistics = ({RTC}) =>
+    <Container>
+        <Info RTC={RTC}/>
         <Button
             fullWidth
             size="small"
@@ -45,5 +27,5 @@ const Statistics = ({RTC}) => {
             Подключиться
         </Button>
     </Container>
-}
+
 export default observer(Statistics)

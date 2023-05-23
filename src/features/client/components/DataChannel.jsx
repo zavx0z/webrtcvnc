@@ -10,7 +10,7 @@ const Container = ({children}) =>
         gap: theme.spacing(1),
         width: theme.spacing(40),
         padding: theme.spacing(1),
-        bottom: theme.spacing(1),
+        top: theme.spacing(1),
         left: theme.spacing(1),
     })}>
         {children}

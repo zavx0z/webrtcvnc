@@ -1,47 +1,10 @@
 import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
-import adapter from 'webrtc-adapter'
 import neutronService from "../core/neutron/neutronService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
+import {logMiddleware} from "../core/proton/logMiddleware"
 
-console.log(adapter.browserDetails.browser, adapter.browserDetails.version)
-const logMiddleware = (call, next, abort) => {
-    const moduleName = 'RTC'
-    const arg = call.args[0]
-    switch (call.name) {
-        case 'setSenderUserNameFragment':
-            console.log(moduleName, call.name, arg)
-            break
-        case 'setUserNameFragment':
-            console.log(moduleName, call.name, arg)
-            break
-        case 'changeStateConnection':
-            console.log(moduleName, call.name, arg.target.connectionState)
-            break
-        case 'changeStateDataChannel':
-            console.log(moduleName, call.name, arg.type)
-            break
-        case 'changeStateIceGathering':
-            console.log(moduleName, call.name, arg.target.iceGatheringState)
-            break
-        case 'receiveCandidate':
-            if (arg.usernameFragment !== call.context.senderUsernameFragment)
-                return abort('not senderUsernameFragment equal')
-            else
-                console.log(moduleName, call.name, `from: ${arg.usernameFragment}`)
-            break
-        case 'sendCandidate':
-            if (arg.candidate?.candidate)
-                console.log(moduleName, call.name, `from: ${arg.candidate.usernameFragment}`)
-            break
-        case 'setTrack':
-            console.log(moduleName, call.name, arg.track.label)
-            break
-        default:
-            break
-    }
-    next(call)
-}
+
 const eventNegotiationNeeded = event => console.log(event.type)
 const atomScreenShare = types
     .model('atomScreenShare', {
@@ -164,7 +127,16 @@ const atomScreenShare = types
                     video: {displaySurface: "browser"},
                     audio: true
                 })
-                    .then(videoStream => stream = videoStream)
+                    .then(videoStream => {
+                        stream = videoStream
+                        const track = stream.getTracks()[0]
+                        // Устанавливаем обработчики событий на объект MediaStreamTrack
+                        track.onended = () => console.log('Трек закончил воспроизведение')
+                        track.onmute = () => console.log('Трек был выключен')
+                        track.onunmute = () => console.log('Трек был включен')
+                        track.onisolationchange = () => console.log('Трек был изолирован или отключен')
+                        track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
+                    })
                     .then(initialization)
                     .catch(error => console.error(error))
             },

@@ -1,48 +1,9 @@
 import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
-import adapter from 'webrtc-adapter'
 import neutronService from "../core/neutron/neutronService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
+import {logMiddleware} from "../core/proton/logMiddleware"
 
-
-console.log(adapter.browserDetails.browser, adapter.browserDetails.version)
-const logMiddleware = (call, next, abort) => {
-    const moduleName = 'RTC'
-    const arg = call.args[0]
-    switch (call.name) {
-        case 'setSenderUserNameFragment':
-            console.log(moduleName, call.name, arg)
-            break
-        case 'setUserNameFragment':
-            console.log(moduleName, call.name, arg)
-            break
-        case 'changeStateConnection':
-            console.log(moduleName, call.name, arg.target.connectionState)
-            break
-        case 'changeStateDataChannel':
-            console.log(moduleName, call.name, arg.type)
-            break
-        case 'changeStateIceGathering':
-            console.log(moduleName, call.name, arg.target.iceGatheringState)
-            break
-        case 'receiveCandidate':
-            if (arg.usernameFragment !== call.context.senderUsernameFragment)
-                return abort('not senderUsernameFragment equal')
-            else
-                console.log(moduleName, call.name, `from: ${arg.usernameFragment}`)
-            break
-        case 'sendCandidate':
-            if (arg.candidate?.candidate)
-                console.log(moduleName, call.name, `from: ${arg.candidate.usernameFragment}`)
-            break
-        case 'setTrack':
-            console.log(moduleName, call.name, arg.track.label)
-            break
-        default:
-            break
-    }
-    next(call)
-}
 const eventNegotiationNeeded = event => console.log('eventNegotiationNeeded', event)
 const atomScreenMirror = types
     .model('atomScreenMirror', {
@@ -130,8 +91,7 @@ const atomScreenMirror = types
             console.log('destroy!')
             peerConnection && destroyPeerConnection()
             dataChannel && destroyDataChannel()
-            if (self['videoRef'].srcObject)
-                self['videoRef'].srcObject = null
+            self.destroyVideo()
             self.core.signalService.off('answer', messageReceiveAnswer)
             self.core.signalService.off('candidate', self['receiveCandidate'])
         }
@@ -139,12 +99,11 @@ const atomScreenMirror = types
         const messageSendOffer = async () => {
             const offer = await peerConnection.createOffer({iceRestart: false})
             await peerConnection.setLocalDescription(offer)
-            console.log(peerConnection)
+
             self['setUserNameFragment'](usernameFragmentFromOffer(offer))
-            self.core.signalService.emit('offer', offer)
+            self.core.signalService.emit('offer', offer.toJSON())
         }
         const messageReceiveAnswer = answer => {
-            console.log(answer)
             peerConnection
                 .setRemoteDescription(new RTCSessionDescription(answer))
                 .then(() => self['setSenderUserNameFragment'](usernameFragmentFromOffer(answer)))
@@ -159,6 +118,10 @@ const atomScreenMirror = types
             },
             beforeDestroy() {
                 destroy()
+            },
+            destroyVideo() {
+                if (self['videoRef'].srcObject)
+                    self['videoRef'].srcObject = null
             },
             start() {
                 initialization()
@@ -201,8 +164,17 @@ const atomScreenMirror = types
             },
             setTrack(event) {
                 const {videoRef} = self
-                if (!videoRef.srcObject)
-                    videoRef.srcObject = event.streams[0]
+                if (!videoRef.srcObject) {
+                    const stream = event.streams[0]
+                    videoRef.srcObject = stream
+                    const track = stream.getTracks()[0]
+                    // Устанавливаем обработчики событий на объект MediaStreamTrack
+                    track.onended = () => console.log('Трек закончил воспроизведение')
+                    track.onmute = () => console.log('Трек был выключен')
+                    track.onunmute = () => console.log('Трек был включен')
+                    track.onisolationchange = () => console.log('Трек был изолирован или отключен')
+                    track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
+                }
             },
             receiveData(event) {
                 self.data = event.data

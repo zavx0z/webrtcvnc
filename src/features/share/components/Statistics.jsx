@@ -1,6 +1,7 @@
-import {Button, Paper, Table, TableBody, TableCell, TableRow} from "@mui/material"
-import {inject, observer} from "mobx-react"
+import {Button, Paper} from "@mui/material"
+import {observer} from "mobx-react"
 import React from "react"
+import Info from "../../../electron/Info"
 
 const Container = ({children}) => <Paper sx={theme => ({
     position: 'absolute',
@@ -12,38 +13,17 @@ const Container = ({children}) => <Paper sx={theme => ({
     {children}
 </Paper>
 
-const Statistics = ({RTC}) => {
-    return <Container>
-        <Table size={'small'}>
-            <TableBody>
-                <TableRow>
-                    <TableCell>
-                        Статус подключения
-                    </TableCell>
-                    <TableCell>
-                        {RTC.connection}
-                    </TableCell>
-                </TableRow>
-                <TableRow>
-                    <TableCell>
-                        iceGathering
-                    </TableCell>
-                    <TableCell>
-                        {RTC.iceGathering}
-                    </TableCell>
-                </TableRow>
-            </TableBody>
-        </Table>
-        <Button
-            fullWidth
-            size="small"
-            variant={"contained"}
-            color={'success'}
-            onClick={RTC.preview ? RTC.hidePreview : RTC.showPreview}
-            disabled={RTC.connection === 'connected'}
-        >
-            {RTC.preview ? "Скрыть " : "Показать "}превью видео
-        </Button>
-    </Container>
-}
-export default inject('RTC')(observer(Statistics))
+const Statistics = ({RTC}) => <Container>
+    <Info RTC={RTC}/>
+    <Button
+        fullWidth
+        size="small"
+        variant={"contained"}
+        color={'success'}
+        onClick={RTC.preview ? RTC.hidePreview : RTC.showPreview}
+        disabled={RTC.connection === 'connected'}
+    >
+        {RTC.preview ? "Скрыть " : "Показать "}превью видео
+    </Button>
+</Container>
+export default observer(Statistics)

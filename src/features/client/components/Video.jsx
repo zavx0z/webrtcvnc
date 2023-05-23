@@ -23,6 +23,7 @@ const Video = ({RTC}) => {
                 maxHeight: height,
             }}
             autoPlay
+            controls
         />
         {RTC.connection === 'connecting' &&
             <Skeleton
