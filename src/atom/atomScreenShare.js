@@ -95,7 +95,7 @@ const atomScreenShare = types
         }
         return {
             afterCreate() {
-                addMiddleware(self, logMiddleware)
+                // addMiddleware(self, logMiddleware)
             },
             beforeDestroy() {
                 destroy()

@@ -1,33 +1,28 @@
 import {createBrowserRouter, RouterProvider} from "react-router-dom"
 import React from "react"
-import ScreenMirror from "./molecule/ScreenMirror"
-import ScreenShare from "./molecule/ScreenShare"
 import {inject} from "mobx-react"
-import Home from "./molecule/Home"
+import {Component} from "./component/ScreenShare"
 
-const App = ({everything}) => {
-    return <RouterProvider router={createBrowserRouter([
-        {
-            path: '/',
-            element: <Home/>
-        },
-        {
-            path: "/client",
-            element: <ScreenMirror store={everything.atom.screenMirror}/>,
-        },
-        {
-            path: "/share",
-            loader: async () => {
-                try {
-                    await everything.atom.screenShare.screenCaptureStart()
-                    everything.atom.screenShare.initialization()
-                    return true
-                } catch (e) {
-                    return false
-                }
-            },
-            element: <ScreenShare store={everything.atom.screenShare}/>,
-        },
-    ])}/>
-}
+const App = ({everything}) => <RouterProvider router={createBrowserRouter([
+    {
+        path: '/',
+        async lazy() {
+            return await import("./component/Home")
+        }
+    },
+    {
+        path: "/client",
+        async lazy() {
+            const {Component, loader} = await import("./component/ScreenMirror")
+            return {Component, loader: loader(everything)}
+        }
+    },
+    {
+        path: "/share",
+        async lazy() {
+            const {Component, loader} = await import("./component/ScreenShare")
+            return {Component, loader: loader(everything)}
+        }
+    },
+])}/>
 export default inject('everything')(App)

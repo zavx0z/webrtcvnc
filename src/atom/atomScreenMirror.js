@@ -1,8 +1,15 @@
-import {addMiddleware, onAction, types} from "mobx-state-tree"
+import {addMiddleware, types} from "mobx-state-tree"
 import freeice from "freeice"
 import neutronService from "../core/neutron/neutronService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
 import {logMiddleware} from "../core/proton/logMiddleware"
+import confusion from "../confusion"
+
+const superposition = [{
+    particle: 'signalService',
+    action: 'off',
+    before: ({particle}) => console.log('off', particle)
+}]
 
 const modelRTC = types
     .model({})
@@ -173,7 +180,6 @@ const atomScreenMirror = types
         return {
             afterCreate() {
                 addMiddleware(self, logMiddleware)
-                onAction(self, console.log)
             },
             beforeDestroy() {
                 destroy()

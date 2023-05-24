@@ -23,9 +23,10 @@ const logMiddleware = (call, next) => {
 }
 
 const neutronService = types
-    .model({
+    .model('signalService', {
         id: types.identifier,
-        config: types.frozen({})
+        config: types.frozen({}),
+        value: types.maybeNull(types.string)
     })
     .volatile(self => ({
         db: null
@@ -36,14 +37,15 @@ const neutronService = types
         let candidateEventHandler
         return {
             afterCreate() {
-                addMiddleware(self, logMiddleware)
-                self.db = getFirestore(initializeApp(self.config));
-                (['offer', 'answer', 'candidate']).forEach(self['off'])
+                // addMiddleware(self, logMiddleware)
+                self.db = getFirestore(initializeApp(self.config))
+                const fns = ['offer', 'answer', 'candidate']
+                fns.forEach(self['off'])
             },
             async emit(actionType, arg) {
                 await addDoc(collection(self.db, actionType), arg)
             },
-            on: flow(function* on(actionType, callback) {
+            on(actionType, callback) {
                 answerEventHandler = onSnapshot(collection(self.db, actionType), snapshot => {
                     snapshot.docChanges().forEach(change => {
                         if (change.type === "added") {
@@ -53,8 +55,9 @@ const neutronService = types
                         }
                     })
                 })
-            }),
+            },
             off: flow(function* off(actionType) {
+                self.value = 'value'
                 const oldItems = yield getDocs(collection(self.db, actionType))
                 oldItems.forEach(document => deleteDoc(doc(self.db, actionType, document.id)))
                 switch (actionType) {

@@ -2,7 +2,7 @@ import {IconButton, Paper} from "@mui/material"
 import {CancelPresentation, PresentToAll, Visibility, VisibilityOff} from "@mui/icons-material"
 import {observer} from "mobx-react"
 import React from "react"
-import Info from "../../../electron/Info"
+import Info from "../../../element/Info"
 
 const Container = ({children}) => <Paper sx={theme => ({
     position: 'absolute',

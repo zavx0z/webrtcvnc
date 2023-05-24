@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import './index.css'
 import {Provider} from "mobx-react"
 import "./index.css"
-import {types} from "mobx-state-tree"
+import {addMiddleware, getParent, types} from "mobx-state-tree"
 import App from "./App"
 import neutronService from "./core/neutron/neutronService"
 import atomScreenMirror from "./atom/atomScreenMirror"
@@ -34,7 +34,10 @@ const model = types
         }),
     })
 
-const everything = model.create({
+export const everything = model.create({
+    neutron: {
+        signalService: neutronServiceInstance
+    },
     atom: {
         screenShare: atomScreenShare.create({
             id: 'RTCvideo',
@@ -49,10 +52,14 @@ const everything = model.create({
             }
         })
     },
-    neutron: {
-        signalService: neutronServiceInstance
-    },
     proton: {}
+})
+addMiddleware(everything, (call, next) => {
+    console.log('I', call)
+    if (call.name === 'off'){
+        console.log(getParent(call.context, 1))
+    }
+    next(call)
 })
 
 ReactDOM.createRoot(document.getElementById('root')).render(

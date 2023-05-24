@@ -2,7 +2,7 @@ import {Box, Link as MUILink} from "@mui/material"
 import {Link} from "react-router-dom"
 import React from "react"
 
-const Home = () => {
+export const Component = () => {
     return <Box
         sx={{
             display: "flex",
@@ -18,4 +18,3 @@ const Home = () => {
         </MUILink>
     </Box>
 }
-export default Home
