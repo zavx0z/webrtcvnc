@@ -20,8 +20,8 @@ const App = ({everything}) => <RouterProvider router={createBrowserRouter([
     {
         path: "/share",
         async lazy() {
-            const {Component, loader} = await import("./component/ScreenShare")
-            return {Component, loader: loader(everything)}
+            const {Component, loader, action} = await import("./component/ScreenShare")
+            return {Component, loader: loader(everything), action}
         }
     },
 ])}/>

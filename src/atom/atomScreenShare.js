@@ -1,8 +1,7 @@
-import {addMiddleware, flow, types} from "mobx-state-tree"
+import {types} from "mobx-state-tree"
 import freeice from "freeice"
 import neutronService from "../core/neutron/neutronService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
-import {logMiddleware} from "../core/proton/logMiddleware"
 
 const eventNegotiationNeeded = event => console.log(event.type)
 const atomScreenShare = types
@@ -169,6 +168,10 @@ const modelScreen = types
         setCaptured(bool){
             self.captured = bool
         },
+        setPreview(bool){
+            self.preview = bool
+        },
+
         showPreview() {
             const {videoRef, stream} = self
             videoRef.srcObject = stream

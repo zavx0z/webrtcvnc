@@ -1,16 +1,16 @@
-import { inject, observer } from "mobx-react"
-import React, { useRef } from "react"
+import {inject, observer} from "mobx-react"
+import React, {useEffect, useRef} from "react"
 import DataChannel from "../element/DataChannel"
 import Info from "../element/Info"
-import { Box, IconButton } from "@mui/material"
-import { CancelPresentation, PresentToAll, Visibility, VisibilityOff } from "@mui/icons-material"
+import {Box, IconButton} from "@mui/material"
+import {CancelPresentation, PresentToAll, Visibility, VisibilityOff} from "@mui/icons-material"
 import useAspectRatio from "../hooks/useAspectRatio"
-import { applyPatch } from "mobx-state-tree"
-import { useLoaderData } from "react-router-dom"
+import {applyPatch} from "mobx-state-tree"
+import {useLoaderData , fetcher} from "react-router-dom"
 
 const screenCaptureStart = async (screenShare) => {
-    const stream = yield navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: "browser" },
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {displaySurface: "browser"},
         audio: true
     })
     const track = stream.getTracks()[0] // todo get videoTrack
@@ -29,22 +29,28 @@ const screenCaptureStart = async (screenShare) => {
 export const loader = (everything) => async () => {
     applyPatch(everything, {
         path: '/atom/screenShare', op: 'add',
-        value: { id: 'RTCvideo', core: { signalService: everything.neutron.signalService } }
+        value: {
+            id: 'RTCvideo',
+            preview: true,
+            core: {signalService: everything.neutron.signalService}
+        }
     })
     const { screenShare } = everything.atom
     try {
-        await screenCaptureStart()
-        screenShare.initialization()
-        return { stream }
+        const mediaStream = await screenCaptureStart(screenShare)
+        // screenShare.initialization()
+        return {mediaStream}
     } catch (e) {
         return false
     }
 }
 export const Component = inject('everything')(observer(({ everything: { atom: { screenShare: props } } }) => {
-    const { stream } = useLoaderData()
+    const {mediaStream} = useLoaderData()
+    const setVisible = () => props.setPreview(!props.preview)
+    const setCapture = () => props.captured ? props.screenCaptureStop : screenCaptureStart(props)
     return <>
         <Video
-            stream={stream}
+            mediaStream={mediaStream}
             captured={props.captured}
             preview={props.preview}
         />
@@ -57,12 +63,12 @@ export const Component = inject('everything')(observer(({ everything: { atom: { 
         >
             <IconButton
                 disabled={!props.captured}
-                onClick={props.preview ? props.hidePreview : props.showPreview}
+                onClick={setVisible}
             >
                 {props.preview ? <VisibilityOff /> : <Visibility />}
             </IconButton>
             <IconButton
-                onClick={props.captured ? props.screenCaptureStop : props.screenCaptureStart}
+                onClick={setCapture}
             >
                 {props.captured ? <CancelPresentation /> : <PresentToAll />}
             </IconButton>
@@ -76,9 +82,17 @@ export const Component = inject('everything')(observer(({ everything: { atom: { 
     </>
 }))
 
-const Video = ({ stream, captured, preview }) => {
+const Video = ({mediaStream, captured, preview}) => {
     const parentRef = useRef()
     const [width, height] = useAspectRatio(parentRef)
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+        if (videoRef.current && mediaStream) {
+            videoRef.current.srcObject = mediaStream;
+        }
+    }, [mediaStream]);
+
     return <Box
         ref={parentRef}
         sx={{
@@ -89,9 +103,9 @@ const Video = ({ stream, captured, preview }) => {
             alignItems: 'center',
         }}>
         <video
-            src={stream}
+            ref={videoRef}
             style={{
-                display: 'none',
+                display: preview ? 'flex' : 'none',
                 maxWidth: width,
                 maxHeight: height,
             }}
