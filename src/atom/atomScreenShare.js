@@ -166,6 +166,9 @@ const modelScreen = types
         captured: false,
     }))
     .actions(self => ({
+        setCaptured(bool){
+            self.captured = bool
+        },
         showPreview() {
             const {videoRef, stream} = self
             videoRef.srcObject = stream
@@ -182,27 +185,6 @@ const modelScreen = types
             self.stream.getTracks().forEach(track => track.stop())
             self.captured = false
         },
-        screenCaptureStart: flow(function* () {
-            const stream = yield navigator.mediaDevices.getDisplayMedia({
-                video: {displaySurface: "browser"},
-                audio: true
-            })
-            const track = stream.getTracks()[0] // todo get videoTrack
-            // Устанавливаем обработчики событий на объект MediaStreamTrack
-            track.onended = () => {
-                console.log('Трек закончил воспроизведение')
-                self.hidePreview()
-            }
-            // track.onmute = () => console.log('Трек был выключен')
-            // track.onunmute = () => console.log('Трек был включен')
-            track.onisolationchange = () => console.log('Трек был изолирован или отключен')
-            track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
-            self.stream = stream
-            self.captured = true
-            if (self.preview)
-                self.showPreview()
-        }),
-
     }))
     .views(self => ({
         get videoRef() {
