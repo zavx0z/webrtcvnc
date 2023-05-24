@@ -3,13 +3,13 @@ import ReactDOM from 'react-dom/client'
 import './index.css'
 import {Provider} from "mobx-react"
 import "./index.css"
-import {addMiddleware, getParent, types} from "mobx-state-tree"
+import {types} from "mobx-state-tree"
 import App from "./App"
 import neutronService from "./core/neutron/neutronService"
 import atomScreenMirror from "./atom/atomScreenMirror"
 import atomScreenShare from "./atom/atomScreenShare"
 
-const neutronServiceInstance = neutronService.create({
+export const neutronServiceInstance = neutronService.create({
     id: 'firestore',
     config: {
         apiKey: "AIzaSyDluLj6FqSyGDc8gBnULGrO71CCNkkg5Eg",
@@ -25,8 +25,8 @@ const neutronServiceInstance = neutronService.create({
 const model = types
     .model({
         atom: types.model('atom', {
-            screenShare: atomScreenShare,
-            screenMirror: atomScreenMirror,
+            screenShare: types.maybeNull(atomScreenShare),
+            screenMirror: types.maybeNull(atomScreenMirror),
         }),
         proton: types.model('proton', {}),
         neutron: types.model('neutron', {
@@ -39,12 +39,6 @@ export const everything = model.create({
         signalService: neutronServiceInstance
     },
     atom: {
-        screenShare: atomScreenShare.create({
-            id: 'RTCvideo',
-            core: {
-                signalService: neutronServiceInstance
-            }
-        }),
         screenMirror: atomScreenMirror.create({
             id: 'video',
             core: {

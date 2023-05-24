@@ -1,7 +1,7 @@
 import {Button, Paper, Table, TableBody, TableCell, TableRow, TextField, Typography} from "@mui/material"
 import React, {useState} from "react"
 
-const Container = ({children}) =>
+const Container = ({children, position}) =>
     <Paper sx={theme => ({
         position: 'absolute',
         display: 'flex',
@@ -9,15 +9,19 @@ const Container = ({children}) =>
         gap: theme.spacing(1),
         width: theme.spacing(40),
         padding: theme.spacing(1),
-        top: theme.spacing(1),
+        ...position === 'top' ? {top: theme.spacing(1)} : {bottom: theme.spacing(1)},
         left: theme.spacing(1),
     })}>
         {children}
     </Paper>
-
-const DataChannel = ({send, data, status}) => {
-    const [value, setValue] = useState()
-    return <Container>
+const DataChannel = ({send, data, status, position}) => {
+    const [value, setValue] = useState('')
+    const handleChange = event => setValue(event.target.value)
+    const handleSubmit = () => {
+        send(value)
+        setValue('')
+    }
+    return <Container position={position}>
         <Table size={'small'}>
             <TableBody>
                 <TableRow>
@@ -35,12 +39,12 @@ const DataChannel = ({send, data, status}) => {
         </Typography>
         <TextField
             fullWidth
-            onChange={e => setValue(e.target.value)}
+            onChange={handleChange}
         />
         <Button
             fullWidth
             variant={'contained'}
-            onClick={() => send(value)}
+            onClick={handleSubmit}
         >
             Отправить данные
         </Button>

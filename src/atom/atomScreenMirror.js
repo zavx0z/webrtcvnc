@@ -1,73 +1,13 @@
-import {addMiddleware, types} from "mobx-state-tree"
+import {types} from "mobx-state-tree"
 import freeice from "freeice"
 import neutronService from "../core/neutron/neutronService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
-import {logMiddleware} from "../core/proton/logMiddleware"
-import confusion from "../confusion"
-
-const superposition = [{
-    particle: 'signalService',
-    action: 'off',
-    before: ({particle}) => console.log('off', particle)
-}]
-
-const modelRTC = types
-    .model({})
-    .volatile(self => ({
-        peerConnection: null,
-        dataChannel: null,
-    }))
-    .actions(self => ({
-        createPeerConnection() {
-            const {changeStateIceGathering, changeStateConnection, changeStateDataChannel, eventNegotiationNeeded, sendCandidate, setTrack} = self
-            const peerConnection = new RTCPeerConnection({iceServers: freeice()})
-            peerConnection.addEventListener("icegatheringstatechange", changeStateIceGathering)
-            peerConnection.addEventListener('connectionstatechange', changeStateConnection)
-            peerConnection.addEventListener('datachannel', changeStateDataChannel)
-            peerConnection.addEventListener("negotiationneeded", eventNegotiationNeeded)
-            peerConnection.addEventListener('icecandidate', sendCandidate)
-            peerConnection.addEventListener('track', setTrack)
-            self.peerConnection = peerConnection
-        },
-        destroyPeerConnection() {
-            const {peerConnection, changeStateIceGathering, changeStateConnection, changeStateDataChannel, eventNegotiationNeeded, sendCandidate, setTrack} = self
-            peerConnection.removeEventListener("icegatheringstatechange", changeStateIceGathering)
-            peerConnection.removeEventListener('connectionstatechange', changeStateConnection)
-            peerConnection.removeEventListener('datachannel', changeStateDataChannel)
-            peerConnection.removeEventListener("negotiationneeded", eventNegotiationNeeded)
-            peerConnection.removeEventListener('icecandidate', sendCandidate)
-            peerConnection.removeEventListener('track', setTrack)
-            self.peerConnection = null
-        },
-        createDataChannel() {
-            const {peerConnection, changeStateDataChannel, receiveData} = self
-            const dataChannel = peerConnection.createDataChannel('data', {negotiated: true, id: 0})
-            dataChannel.addEventListener('bufferedamountlow', changeStateDataChannel)
-            dataChannel.addEventListener('closing', changeStateDataChannel)
-            dataChannel.addEventListener('close', changeStateDataChannel)
-            dataChannel.addEventListener('error', changeStateDataChannel)
-            dataChannel.addEventListener('open', changeStateDataChannel)
-            dataChannel.addEventListener('message', receiveData)
-            self.dataChannel = dataChannel
-        },
-        destroyDataChannel() {
-            const {dataChannel, peerConnection, changeStateDataChannel, receiveData} = self
-            dataChannel.removeEventListener('bufferedamountlow', changeStateDataChannel)
-            dataChannel.removeEventListener('closing', changeStateDataChannel)
-            dataChannel.removeEventListener('close', changeStateDataChannel)
-            dataChannel.removeEventListener('error', changeStateDataChannel)
-            dataChannel.removeEventListener('open', changeStateDataChannel)
-            dataChannel.removeEventListener('message', receiveData)
-            self.dataChannel = null
-        }
-    }))
 
 const eventNegotiationNeeded = event => console.log('eventNegotiationNeeded', event)
 const atomScreenMirror = types
     .model('atomScreenMirror', {
         core: types.model('atomScreenShareCore', {
-            signalService: types.reference(neutronService),
-            rtc: types.safeReference(modelRTC),
+            signalService: types.safeReference(neutronService),
         }),
         connection: types.optional(types.enumeration('connection', [
             'new',
@@ -179,7 +119,7 @@ const atomScreenMirror = types
         }
         return {
             afterCreate() {
-                addMiddleware(self, logMiddleware)
+                // addMiddleware(self, logMiddleware)
             },
             beforeDestroy() {
                 destroy()

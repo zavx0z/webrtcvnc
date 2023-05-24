@@ -2,8 +2,8 @@ import {Box, Link as MUILink} from "@mui/material"
 import {Link} from "react-router-dom"
 import React from "react"
 
-export const Component = () => {
-    return <Box
+export const Component = () =>
+    <Box
         sx={{
             display: "flex",
             flexDirection: "column",
@@ -17,4 +17,3 @@ export const Component = () => {
             Client
         </MUILink>
     </Box>
-}
