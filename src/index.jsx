@@ -54,14 +54,13 @@ export const everything = model.create({
     },
     proton: {}
 })
-addMiddleware(everything, (call, next) => {
-    console.log('I', call)
-    if (call.name === 'off'){
-        console.log(getParent(call.context, 1))
-    }
-    next(call)
-})
-
+// addMiddleware(everything, (call, next) => {
+//     console.log('I', call)
+//     if (call.name === 'off'){
+//         console.log(getParent(call.context, 1))
+//     }
+//     next(call)
+// })
 ReactDOM.createRoot(document.getElementById('root')).render(
     <Provider everything={everything}>
         <App/>

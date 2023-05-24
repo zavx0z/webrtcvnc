@@ -1,6 +1,5 @@
 import {Button, Paper, Table, TableBody, TableCell, TableRow, TextField, Typography} from "@mui/material"
 import React, {useState} from "react"
-import {inject, observer} from "mobx-react"
 
 const Container = ({children}) =>
     <Paper sx={theme => ({
@@ -10,13 +9,13 @@ const Container = ({children}) =>
         gap: theme.spacing(1),
         width: theme.spacing(40),
         padding: theme.spacing(1),
-        bottom: theme.spacing(1),
+        top: theme.spacing(1),
         left: theme.spacing(1),
     })}>
         {children}
     </Paper>
 
-const DataChannel = ({RTC}) => {
+const DataChannel = ({send, data, status}) => {
     const [value, setValue] = useState()
     return <Container>
         <Table size={'small'}>
@@ -26,13 +25,13 @@ const DataChannel = ({RTC}) => {
                         Статус подключения
                     </TableCell>
                     <TableCell>
-                        {RTC.dataChannel}
+                        {status}
                     </TableCell>
                 </TableRow>
             </TableBody>
         </Table>
         <Typography>
-            {RTC.data}
+            {data}
         </Typography>
         <TextField
             fullWidth
@@ -41,10 +40,10 @@ const DataChannel = ({RTC}) => {
         <Button
             fullWidth
             variant={'contained'}
-            onClick={() => RTC.sendData(value)}
+            onClick={() => send(value)}
         >
             Отправить данные
         </Button>
     </Container>
 }
-export default inject('RTC')(observer(DataChannel))
+export default DataChannel

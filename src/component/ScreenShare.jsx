@@ -1,13 +1,18 @@
-import DataChannel from "../features/share/components/DataChannel"
 import Statistics from "../features/share/components/Statistics"
 import Video from "../features/share/components/Video"
 import {inject, observer} from "mobx-react"
+import React from "react"
+import DataChannel from "../element/DataChannel"
 
 export const Component = inject('everything')
 (observer(({everything: {atom: {screenShare}}}) => {
     return <>
         <Video RTC={screenShare}/>
-        <DataChannel RTC={screenShare}/>
+        <DataChannel
+            send={screenShare.sendData}
+            data={screenShare.data}
+            status={screenShare.dataChannelStatus}
+        />
         <Statistics RTC={screenShare}/>
     </>
 }))
