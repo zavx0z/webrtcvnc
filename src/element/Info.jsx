@@ -1,5 +1,6 @@
 import {Paper, Table, TableBody, TableCell, TableRow} from "@mui/material"
 import React from "react"
+import {observer} from "mobx-react"
 
 const Container = ({children, position}) =>
     <Paper
@@ -52,4 +53,4 @@ const Info = (props) => <Container position={props.position}>
     </Table>
     {props.children}
 </Container>
-export default Info
+export default observer(Info)

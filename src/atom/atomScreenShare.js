@@ -157,42 +157,19 @@ const atomScreenShare = types
 
 const modelScreen = types
     .model('screenCapture', {
-        id: types.identifier,
         preview: types.optional(types.boolean, false),
+        captured: types.optional(types.boolean, false),
     })
     .volatile(self => ({
         stream: null,
-        captured: false,
     }))
     .actions(self => ({
-        setCaptured(bool){
+        setCaptured(bool) {
             self.captured = bool
         },
-        setPreview(bool){
+        setPreview(bool) {
             self.preview = bool
         },
-
-        showPreview() {
-            const {videoRef, stream} = self
-            videoRef.srcObject = stream
-            videoRef.style.display = 'flex'
-            self.preview = true
-        },
-        hidePreview() {
-            const {videoRef} = self
-            videoRef.srcObject = null
-            videoRef.style.display = 'none'
-            self.preview = false
-        },
-        screenCaptureStop() {
-            self.stream.getTracks().forEach(track => track.stop())
-            self.captured = false
-        },
-    }))
-    .views(self => ({
-        get videoRef() {
-            return document.getElementById(String(self.id))
-        }
     }))
 
 
