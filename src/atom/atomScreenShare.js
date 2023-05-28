@@ -9,34 +9,7 @@ const atomScreenShare = types
         core: types.model('atomScreenShareCore', {
             signalService: types.reference(neutronService)
         }),
-        connection: types.optional(types.enumeration('состояние соединения', [
-            'new',
-            'connected',
-            'disconnected',
-            'checking',
-            'closed',
-            'failed',
-            'connecting',
-        ]), 'new'),
-        dataChannel: types.optional(types.enumeration('dataChannel', [
-            'bufferedamountlow',
-            'closing',
-            'error',
-            'message',
-            'close',
-            'open',
-        ]), 'close'),
-        iceGathering: types.optional(types.enumeration('сбор кандидатов ICE ', [
-            'new',
-            'gathering',
-            'complete'
-        ]), 'new'),
     })
-    .volatile(self => ({
-        data: null,
-        usernameFragment: null,
-        senderUsernameFragment: null,
-    }))
     .actions(self => {
         let peerConnection
         const createPeerConnection = () => {
@@ -94,7 +67,6 @@ const atomScreenShare = types
         }
         return {
             afterCreate() {
-                // addMiddleware(self, logMiddleware)
             },
             beforeDestroy() {
                 destroy()
@@ -111,12 +83,7 @@ const atomScreenShare = types
                 self.core.signalService.on('candidate', self['receiveCandidate'])
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
             },
-            setUserNameFragment(username) {
-                self.usernameFragment = username
-            },
-            setSenderUserNameFragment(username) {
-                self.senderUsernameFragment = username
-            },
+
             changeStateConnection(event) {
                 self.connection = event.target.connectionState
                 if (event.target.connectionState === 'close')
@@ -143,26 +110,72 @@ const atomScreenShare = types
                     self.core.signalService.emit('candidate', event.candidate.toJSON())
                 }
             },
-            receiveData(event) {
-                self.data = event.data
-            },
-            sendData(data) {
-                if (data.length && dataChannel)
-                    dataChannel.send(data)
-            },
 
         }
     })
 
+const peerConnectionModel = types
+    .model('peerConnectionModel', {
+        connection: types.optional(types.enumeration('состояние соединения', [
+            'new',
+            'connected',
+            'disconnected',
+            'checking',
+            'closed',
+            'failed',
+            'connecting',
+        ]), 'new'),
+        iceGathering: types.optional(types.enumeration('сбор кандидатов ICE ', [
+            'new',
+            'gathering',
+            'complete'
+        ]), 'new'),
+    })
+    .volatile(self => ({
+        usernameFragment: null,
+        senderUsernameFragment: null,
+    }))
+    .actions(self => ({
+        setUserNameFragment(username) {
+            self.usernameFragment = username
+        },
+        setSenderUserNameFragment(username) {
+            self.senderUsernameFragment = username
+        },
+    }))
 
-const modelScreen = types
+const dataModel = types
+    .model('dataModel', {
+        dataChannelStatus: types.optional(types.enumeration('dataChannel', [
+            'bufferedamountlow',
+            'closing',
+            'error',
+            'message',
+            'close',
+            'open',
+        ]), 'close'),
+    })
+    .volatile(self => ({
+        data: null,
+        dataToSend: null,
+    }))
+    .actions(self => ({
+        receiveData(event) {
+            self.data = event.data
+        },
+        sendData(data) {
+            self.dataToSend = data
+            // if (data.length && dataChannel)
+            //     dataChannel.send(data)
+        },
+    }))
+
+export const streamModel = types
     .model('screenCapture', {
         preview: types.optional(types.boolean, false),
         captured: types.optional(types.boolean, false),
     })
-    .volatile(self => ({
-        stream: null,
-    }))
+    .volatile(self => ({}))
     .actions(self => ({
         setCaptured(bool) {
             self.captured = bool
@@ -172,5 +185,4 @@ const modelScreen = types
         },
     }))
 
-
-export default types.compose('atomScreenShare', atomScreenShare, modelScreen)
+export default types.compose('atomScreenShare', atomScreenShare, streamModel, dataModel, peerConnectionModel)

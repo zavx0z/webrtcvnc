@@ -7,7 +7,7 @@ import {types} from "mobx-state-tree"
 import App from "./App"
 import neutronService from "./core/neutron/neutronService"
 import atomScreenMirror from "./atom/atomScreenMirror"
-import atomScreenShare from "./atom/atomScreenShare"
+import atomScreenShare, {streamModel} from "./atom/atomScreenShare"
 
 export const neutronServiceInstance = neutronService.create({
     id: 'firestore',
@@ -24,8 +24,9 @@ export const neutronServiceInstance = neutronService.create({
 
 const model = types
     .model({
+        capturedMediaStream: types.maybeNull(streamModel),
+
         atom: types.model('atom', {
-            screenShare: types.maybeNull(atomScreenShare),
             screenMirror: types.maybeNull(atomScreenMirror),
         }),
         proton: types.model('proton', {}),
@@ -48,13 +49,7 @@ export const everything = model.create({
     },
     proton: {}
 })
-// addMiddleware(everything, (call, next) => {
-//     console.log('I', call)
-//     if (call.name === 'off'){
-//         console.log(getParent(call.context, 1))
-//     }
-//     next(call)
-// })
+
 ReactDOM.createRoot(document.getElementById('root')).render(
     <Provider everything={everything}>
         <App/>

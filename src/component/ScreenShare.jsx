@@ -1,97 +1,58 @@
 import {inject, observer} from "mobx-react"
+import {addMiddleware, applyPatch} from "mobx-state-tree"
+import {Box, IconButton} from "@mui/material"
+import {CancelPresentation, PresentToAll, Visibility, VisibilityOff} from "@mui/icons-material"
 import React, {Suspense, useEffect, useRef} from "react"
 import DataChannel from "../element/DataChannel"
 import Info from "../element/Info"
-import {Box, IconButton} from "@mui/material"
-import {CancelPresentation, PresentToAll, Visibility, VisibilityOff} from "@mui/icons-material"
 import useAspectRatio from "../hooks/useAspectRatio"
-import {applyPatch} from "mobx-state-tree"
-import {Await, defer, Form, useFetcher, useLoaderData, useNavigate} from "react-router-dom"
-import {everything} from "../index"
+import {Await, defer, Form, useFetcher, useLoaderData} from "react-router-dom"
+import {mediaStreamDestroy} from "../utils/mediaStreamUtils"
+import {logMiddleware} from "./screenShare/logging"
 
 let mediaStream
-const screenCaptureStart = async (screenShare) => {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {displaySurface: "browser"},
-        audio: true
-    })
-    const track = stream.getVideoTracks()[0]
-    console.log(track.readyState)
-    track.onended = async () => {
-        console.log('Трек закончил воспроизведение')
-        screenCaptureStop(screenShare)
-    }
-    track.onisolationchange = () => console.log('Трек был изолирован или отключен')
-    track.onoverconstrained = () => console.log('Трек не может быть удовлетворен из-за ограничений настройки')
-    screenShare.setCaptured(true)
-    return stream
-}
-const screenCaptureStop = (mediaStream) => {
-    console.log('clear screen share')
-    if (mediaStream) {
-        let videoTrack = mediaStream.getVideoTracks()[0]
-        let audioTrack = mediaStream.getAudioTracks()[0]
-        mediaStream.removeTrack(videoTrack)
-        audioTrack && mediaStream.removeTrack(audioTrack)
-    }
-}
-export const loader = (everything) => async ({params, request}) => {
-    console.log('loading')
-    applyPatch(everything, {
-        path: '/atom/screenShare', op: 'add',
-        value: {
-            preview: true,
-            captured: false,
-            core: {signalService: everything.neutron.signalService}
-        }
-    })
-    const {screenShare} = everything.atom
-    const stream = screenCaptureStart(screenShare).then((stream) => {
-        mediaStream = stream
-        return stream
-    })
+let dataChannel
+let peerConnection
+
+export const loader = (capturedMediaStream) => async ({params, request}) => {
     return defer({
-        stream: stream,
-        send: screenShare.sendData,
-        data: screenShare.data,
-        status: screenShare.dataChannelStatus,
+        stream: navigator.mediaDevices.getDisplayMedia({
+            video: {displaySurface: "browser"},
+            audio: true
+        }).then(item => {
+            capturedMediaStream.setCaptured(true)
+            mediaStream = item
+            return item
+        }).catch(err => console.log(err)),
     })
 }
-export const shouldRevalidate = (everything) => () => {
-    console.log('should revalidate')
+export const shouldRevalidate = (capturedMediaStream) => () => {
     return !Boolean(mediaStream)
 }
 
-export const action = (everything) => async ({params, request}) => {
+export const action = (capturedMediaStream) => async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
-    console.log(data)
     switch (data.action) {
-        case 'clear':
-            if (mediaStream.getVideoTracks()[0].readyState === 'ended') {
-                screenCaptureStop(mediaStream)
-                mediaStream = null
-                everything.atom.screenShare.setCaptured(false)
-            }
+        case 'off':
+            mediaStreamDestroy(mediaStream)
+            mediaStream = null
+            capturedMediaStream.setCaptured(false)
             break
         case 'hidden':
-            everything.atom.screenShare.setPreview(false)
+            capturedMediaStream.setPreview(false)
             break
         case 'visible':
-            everything.atom.screenShare.setPreview(true)
+            capturedMediaStream.setPreview(true)
             break
         default:
             break
     }
     return {'success': 'ok'}
 }
-export const Component = inject('everything')(observer(({everything}) => {
-    const {screenShare: props} = everything.atom
-    const {stream, send, data, status} = useLoaderData()
+export const Component = inject('everything')(observer(({everything: {capturedMediaStream: props}}) => {
+    const {stream} = useLoaderData()
     const fetcher = useFetcher()
-
-    const onended = () => {
-        fetcher.submit({action: 'clear'}, {method: "post", action: "/share"})
-    }
+    const onended = () => fetcher.submit({action: 'off'}, {method: "post", action: "/share"})
     return <>
         <Suspense fallback={null}>
             <Await resolve={stream}>
@@ -119,6 +80,7 @@ export const Component = inject('everything')(observer(({everything}) => {
                     {props.preview ? <VisibilityOff/> : <Visibility/>}
                 </IconButton>
                 <IconButton
+                    disabled={!props.captured}
                     type="submit"
                     name="action"
                     value={props.captured ? 'off' : 'on'}
@@ -129,9 +91,9 @@ export const Component = inject('everything')(observer(({everything}) => {
         </Info>
         <DataChannel
             position={'bottom'}
-            send={send}
-            data={data}
-            status={status}
+            send={props.sendData}
+            data={props.data}
+            status={props.dataChannelStatus}
         />
     </>
 }))
@@ -142,11 +104,10 @@ const Video = ({mediaStream, visible, onended}) => {
     const [width, height] = useAspectRatio(parentRef)
     const videoRef = useRef(null)
     useEffect(() => {
-        console.log('mediaStream', mediaStream)
         if (videoRef.current && mediaStream && mediaStream.getTracks().length > 0) {
             const track = mediaStream.getVideoTracks()[0]
             track.onended = () => {
-                onended()
+                onended(videoRef.current)
                 videoRef.current.load()
             }
             videoRef.current.srcObject = mediaStream
