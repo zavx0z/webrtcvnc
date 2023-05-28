@@ -1,5 +1,4 @@
 import {inject, observer} from "mobx-react"
-import {addMiddleware, applyPatch} from "mobx-state-tree"
 import {Box, IconButton} from "@mui/material"
 import {CancelPresentation, PresentToAll, Visibility, VisibilityOff} from "@mui/icons-material"
 import React, {Suspense, useEffect, useRef} from "react"
@@ -8,11 +7,10 @@ import Info from "../element/Info"
 import useAspectRatio from "../hooks/useAspectRatio"
 import {Await, defer, Form, useFetcher, useLoaderData} from "react-router-dom"
 import {mediaStreamDestroy} from "../utils/mediaStreamUtils"
-import {logMiddleware} from "./screenShare/logging"
 
 let mediaStream
-let dataChannel
-let peerConnection
+// let dataChannel
+// let peerConnection
 
 export const loader = (capturedMediaStream) => async ({params, request}) => {
     return defer({

@@ -1,35 +1,39 @@
-import {addMiddleware, flow, types} from "mobx-state-tree"
-import {addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot} from "firebase/firestore"
-import {initializeApp} from "firebase/app"
+import {flow, types} from "mobx-state-tree"
+import {addDoc, collection, deleteDoc, doc, getDocs, onSnapshot} from "firebase/firestore"
 
-const logMiddleware = (call, next) => {
-    const moduleName = 'FS'
-    switch (call.name) {
-        case 'off':
-            if (call.type === "flow_return")
-                console.log(moduleName, call.name, call.parentEvent.args[0])
-            break
-        case 'on':
-            if (call.type === "flow_resume")
-                console.log(moduleName, call.name, call.parentEvent.args[0])
-            break
-        case 'emit':
-            console.log(moduleName, call.name, call.args[0])
-            break
-        default:
-            break
-    }
-    next(call)
-}
+// const logMiddleware = (call, next) => {
+//     const moduleName = 'FS'
+//     switch (call.name) {
+//         case 'off':
+//             if (call.type === "flow_return")
+//                 console.log(moduleName, call.name, call.parentEvent.args[0])
+//             break
+//         case 'on':
+//             if (call.type === "flow_resume")
+//                 console.log(moduleName, call.name, call.parentEvent.args[0])
+//             break
+//         case 'emit':
+//             console.log(moduleName, call.name, call.args[0])
+//             break
+//         default:
+//             break
+//     }
+//     next(call)
+// }
 
-const neutronService = types
+export const signalService = types
     .model('signalService', {
-        id: types.identifier,
-        config: types.frozen({}),
-        value: types.maybeNull(types.string)
+        apiKey: types.string,
+        authDomain: types.string,
+        projectId: types.string,
+        storageBucket: types.string,
+        messagingSenderId: types.string,
+        appId: types.string,
+        measurementId: types.string,
     })
     .volatile(self => ({
-        db: null
+        db: null,
+        value: types.maybeNull(types.string)
     }))
     .actions(self => {
         let offerEventHandler
@@ -38,9 +42,9 @@ const neutronService = types
         return {
             afterCreate() {
                 // addMiddleware(self, logMiddleware)
-                self.db = getFirestore(initializeApp(self.config))
-                const fns = ['offer', 'answer', 'candidate']
-                fns.forEach(self['off'])
+                // self.db = getFirestore(initializeApp(self.config))
+                // const fns = ['offer', 'answer', 'candidate']
+                // fns.forEach(self['off'])
             },
             async emit(actionType, arg) {
                 await addDoc(collection(self.db, actionType), arg)
@@ -76,4 +80,3 @@ const neutronService = types
             })
         }
     })
-export default neutronService

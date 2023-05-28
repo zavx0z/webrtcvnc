@@ -1,60 +1,52 @@
-import {createBrowserRouter, RouterProvider, useFetcher} from "react-router-dom"
-import React from "react"
-import {inject} from "mobx-react"
-import {Component, shouldRevalidate} from "./component/ScreenShare"
 import {addMiddleware, applyPatch} from "mobx-state-tree"
 
-const App = ({everything}) => {
-    return <RouterProvider router={createBrowserRouter([
-        {
-            path: '/',
-            async lazy() {
-                return await import("./component/Home")
+export const webrtcvnc = (everything) => [
+    {
+        path: '/',
+        async lazy() {
+            const signalServiceConfig = {
+                apiKey: "AIzaSyDluLj6FqSyGDc8gBnULGrO71CCNkkg5Eg",
+                authDomain: "webrtcvnc.firebaseapp.com",
+                projectId: "webrtcvnc",
+                storageBucket: "webrtcvnc.appspot.com",
+                messagingSenderId: "134452625511",
+                appId: "1:134452625511:web:936e0c299ca297f2b154c2",
+                measurementId: "G-0EVKJ5EBNY"
             }
+            applyPatch(everything, {op: 'add', path: '/signalService', value: signalServiceConfig})
         },
-        {
-            path: "/client",
-            async lazy() {
-                const {Component, loader} = await import("./component/ScreenMirror")
-                return {Component, loader: loader(everything)}
-            }
-        },
-        {
-            path: "/share",
-            async lazy() {
-                if (!everything.stream) {
-                    const initValue = {
+        children: [
+            {
+                index: true,
+                async lazy() {
+                    return await import("./component/Home")
+                }
+            },
+            {
+                path: "share",
+                async lazy() {
+                    const {logMiddleware} = await import("./atom/logging")
+                    const {Component, loader, action, shouldRevalidate} = await import("./component/ScreenShare")
+                    const capturedMediaStreamConfig = {
                         preview: true,
                         captured: false,
                     }
-                    applyPatch(everything, {op: 'add', path: '/capturedMediaStream', value: initValue})
-                    const {logMiddleware} = await import("./component/screenShare/logging")
+                    applyPatch(everything, {op: 'add', path: '/capturedMediaStream', value: capturedMediaStreamConfig})
                     addMiddleware(everything.capturedMediaStream, logMiddleware)
-                }
-                const {Component, loader, action, shouldRevalidate} = await import("./component/ScreenShare")
-                return {
-                    Component,
-                    shouldRevalidate: shouldRevalidate(everything.capturedMediaStream),
-                    loader: loader(everything.capturedMediaStream),
-                    action: action(everything.capturedMediaStream)
-                }
-            }
-        },
-        {
-            path: "/state",
-            loader: ({params, request}) => {
-                console.log('state request', params, request)
-                const {atom: {screenShare}} = everything
-                return {
-                    captured: screenShare.captured,
-                    preview: screenShare.preview,
+                    return {
+                        Component, shouldRevalidate,
+                        loader: loader(everything.capturedMediaStream),
+                        action: action(everything.capturedMediaStream)
+                    }
                 }
             },
-            action: ({params, request}) => {
-                console.log('state request', params, request)
-                console.log('action', params, request)
-            }
-        },
-    ])}/>
-}
-export default inject('everything')(App)
+            {
+                path: "client",
+                async lazy() {
+                    const {Component, loader} = await import("./component/ScreenMirror")
+                    return {Component, loader: loader(everything)}
+                }
+            },
+        ]
+    }
+]
