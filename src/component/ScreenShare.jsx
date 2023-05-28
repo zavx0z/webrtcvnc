@@ -7,24 +7,33 @@ import Info from "../element/Info"
 import useAspectRatio from "../hooks/useAspectRatio"
 import {Await, defer, Form, useFetcher, useLoaderData} from "react-router-dom"
 import {mediaStreamDestroy} from "../utils/mediaStreamUtils"
+import {applyPatch} from "mobx-state-tree"
 
 let mediaStream
 // let dataChannel
 // let peerConnection
+
+const createPeerConnection = (root) => {
+    const peerConnectionConfig = {
+        id: 'screenShare1',
+    }
+    applyPatch(root, {op: 'add', path: '/peerConnections/' + peerConnectionConfig.id, value: peerConnectionConfig})
+}
+
 
 export const loader = (capturedMediaStream) => async ({params, request}) => {
     return defer({
         stream: navigator.mediaDevices.getDisplayMedia({
             video: {displaySurface: "browser"},
             audio: true
-        }).then(item => {
+        }).then(stream => {
             capturedMediaStream.setCaptured(true)
-            mediaStream = item
-            return item
+            mediaStream = stream
+            return stream
         }).catch(err => console.log(err)),
     })
 }
-export const shouldRevalidate = (capturedMediaStream) => () => {
+export const shouldRevalidate = () => {
     return !Boolean(mediaStream)
 }
 
