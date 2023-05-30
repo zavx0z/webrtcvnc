@@ -1,82 +1,49 @@
-import {flow, types} from "mobx-state-tree"
-import {addDoc, collection, deleteDoc, doc, getDocs, onSnapshot} from "firebase/firestore"
+import {addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot} from "firebase/firestore"
+import {initializeApp} from "firebase/app"
 
-// const logMiddleware = (call, next) => {
-//     const moduleName = 'FS'
-//     switch (call.name) {
-//         case 'off':
-//             if (call.type === "flow_return")
-//                 console.log(moduleName, call.name, call.parentEvent.args[0])
-//             break
-//         case 'on':
-//             if (call.type === "flow_resume")
-//                 console.log(moduleName, call.name, call.parentEvent.args[0])
-//             break
-//         case 'emit':
-//             console.log(moduleName, call.name, call.args[0])
-//             break
-//         default:
-//             break
-//     }
-//     next(call)
-// }
-
-export const signalService = types
-    .model('signalService', {
-        apiKey: types.string,
-        authDomain: types.string,
-        projectId: types.string,
-        storageBucket: types.string,
-        messagingSenderId: types.string,
-        appId: types.string,
-        measurementId: types.string,
-    })
-    .volatile(self => ({
-        db: null,
-        value: types.maybeNull(types.string)
-    }))
-    .actions(self => {
-        let offerEventHandler
-        let answerEventHandler
-        let candidateEventHandler
-        return {
-            afterCreate() {
-                // addMiddleware(self, logMiddleware)
-                // self.db = getFirestore(initializeApp(self.config))
-                // const fns = ['offer', 'answer', 'candidate']
-                // fns.forEach(self['off'])
-            },
-            async emit(actionType, arg) {
-                await addDoc(collection(self.db, actionType), arg)
-            },
-            on(actionType, callback) {
-                answerEventHandler = onSnapshot(collection(self.db, actionType), snapshot => {
-                    snapshot.docChanges().forEach(change => {
-                        if (change.type === "added") {
-                            const data = change.doc.data()
-                            callback(data)
-                            // deleteDoc(doc(self.db, change.doc.id)).finally()
-                        }
-                    })
-                })
-            },
-            off: flow(function* off(actionType) {
-                self.value = 'value'
-                const oldItems = yield getDocs(collection(self.db, actionType))
-                oldItems.forEach(document => deleteDoc(doc(self.db, actionType, document.id)))
-                switch (actionType) {
-                    case "offer":
-                        offerEventHandler && offerEventHandler()
-                        break
-                    case "answer":
-                        answerEventHandler && answerEventHandler()
-                        break
-                    case "candidate":
-                        candidateEventHandler && candidateEventHandler()
-                        break
-                    default:
-                        break
+export const signalServer = {
+    candidateEventHandler: null,
+    answerEventHandler: null,
+    offerEventHandler: null,
+    db: null,
+    on: (actionType, callback) => {
+        this.answerEventHandler = onSnapshot(collection(this.db, actionType), snapshot => {
+            snapshot.docChanges().forEach(change => {
+                if (change.type === "added") {
+                    const data = change.doc.data()
+                    callback(data)
+                    // deleteDoc(doc(self.db, change.doc.id)).finally()
                 }
             })
+        })
+    },
+    off: async (actionType, callback) => {
+        const oldItems = await getDocs(collection(this.db, actionType))
+        oldItems.forEach(document => deleteDoc(doc(this.db, actionType, document.id)))
+        switch (actionType) {
+            case "offer":
+                this.offerEventHandler && this.offerEventHandler()
+                break
+            case "answer":
+                this.answerEventHandler && this.answerEventHandler()
+                break
+            case "candidate":
+                this.candidateEventHandler && this.candidateEventHandler()
+                break
+            default:
+                break
         }
-    })
+    },
+    emit: async (actionType, arg) => {
+        await addDoc(collection(this.db, actionType), arg)
+    },
+}
+export const loader = (firebaseConfig) => ({params, request}) => {
+    console.log('signalServer loader')
+    signalServer.db = getFirestore(initializeApp(firebaseConfig))
+    return {}
+}
+export const shouldRevalidate = () => {
+    console.log('signalServer shouldRevalidate')
+    return false
+}

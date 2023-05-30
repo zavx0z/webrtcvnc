@@ -59,6 +59,15 @@ export const action = (capturedMediaStream) => async ({params, request}) => {
 export const Component = inject('everything')(observer(({everything: {capturedMediaStream: props}}) => {
     const {stream} = useLoaderData()
     const fetcher = useFetcher()
+    const server = useFetcher()
+    useEffect(() => {
+        if (!server.data) {
+            server.submit({'hello': 'world'}, {method: 'POST', action: "/server"})
+            server.load('/server')
+        } else {
+            console.log(server.data)
+        }
+    }, [server])
     const onended = () => fetcher.submit({action: 'off'}, {method: "post", action: "/share"})
     return <>
         <Suspense fallback={null}>
