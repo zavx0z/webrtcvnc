@@ -1,4 +1,3 @@
-import {inject, observer} from "mobx-react"
 import {Box, IconButton} from "@mui/material"
 import {CancelPresentation, PresentToAll, Visibility, VisibilityOff} from "@mui/icons-material"
 import React, {Suspense, useEffect, useRef} from "react"
@@ -6,113 +5,103 @@ import DataChannel from "../element/DataChannel"
 import Info from "../element/Info"
 import useAspectRatio from "../hooks/useAspectRatio"
 import {Await, defer, Form, useFetcher, useLoaderData} from "react-router-dom"
-import {mediaStreamDestroy} from "../utils/mediaStreamUtils"
-import {applyPatch} from "mobx-state-tree"
 
-let mediaStream
-// let dataChannel
-// let peerConnection
-
-const createPeerConnection = (root) => {
-    const peerConnectionConfig = {
-        id: 'screenShare1',
-    }
-    applyPatch(root, {op: 'add', path: '/peerConnections/' + peerConnectionConfig.id, value: peerConnectionConfig})
+let capturedMediaStream = {
+    preview: true,
 }
-
-
-export const loader = (capturedMediaStream, signalServer) => async ({params, request}) => {
+const peerConnection = {
+    iceGathering: 'connection',
+    usernameFragment: '',
+    senderUsernameFragment: '',
+    connection: 'new',
+    dataChannelStatus: 'new',
+    data: '',
+    sendData: () => {
+    },
+}
+export const loader = ({config, signalServer, displayMedia}) => async ({params, request}) => {
+    console.log('ScreenShare', 'loader')
+    capturedMediaStream = config
     return defer({
-        stream: navigator.mediaDevices.getDisplayMedia({
-            video: {displaySurface: "browser"},
-            audio: true
-        }).then(stream => {
-            capturedMediaStream.setCaptured(true)
-            mediaStream = stream
+        stream: displayMedia.getMedia().then(stream => {
+            capturedMediaStream.captured = true
             return stream
         }).catch(err => console.log(err)),
+        capture: capturedMediaStream,
     })
 }
 export const shouldRevalidate = () => {
-    return !Boolean(mediaStream)
+    let revalidate = false
+    console.log('ScreenShare', 'shouldRevalidate', revalidate)
+    return revalidate
 }
 
-export const action = (capturedMediaStream) => async ({params, request}) => {
+export const action = () => async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
+    console.log('ScreenShare', 'action', data)
     switch (data.action) {
         case 'off':
-            mediaStreamDestroy(mediaStream)
-            mediaStream = null
             capturedMediaStream.setCaptured(false)
             break
         case 'hidden':
-            capturedMediaStream.setPreview(false)
+            capturedMediaStream.preview = false
             break
         case 'visible':
-            capturedMediaStream.setPreview(true)
+            capturedMediaStream.preview = true
             break
         default:
             break
     }
     return {'success': 'ok'}
 }
-export const Component = inject('everything')(observer(({everything: {capturedMediaStream: props}}) => {
-    const {stream} = useLoaderData()
+export const Component = () => {
+    const {stream, capture} = useLoaderData()
     const fetcher = useFetcher()
-    const server = useFetcher()
-    useEffect(() => {
-        if (!server.data) {
-            server.submit({'hello': 'world'}, {method: 'POST', action: "/signal-service"})
-            server.load('/signal-service')
-        } else {
-            console.log(server.data)
-        }
-    }, [server])
     const onended = () => fetcher.submit({action: 'off'}, {method: "post", action: "/share"})
     return <>
         <Suspense fallback={null}>
             <Await resolve={stream}>
                 {stream => <Video
-                    mediaStream={mediaStream}
-                    visible={props.preview}
+                    mediaStream={stream}
+                    visible={capture.preview}
                     onended={onended}
                 />}
             </Await>
         </Suspense>
         <Info
             position={'bottom'}
-            connection={props.connection}
-            iceGathering={props.iceGathering}
-            userName={props.usernameFragment}
-            senderName={props.senderUsernameFragment}
+            connection={peerConnection.connection}
+            iceGathering={peerConnection.iceGathering}
+            userName={peerConnection.usernameFragment}
+            senderName={peerConnection.senderUsernameFragment}
         >
             <Form method={'post'}>
                 <IconButton
-                    disabled={!props.captured}
+                    disabled={!stream}
                     type="submit"
                     name="action"
-                    value={props.preview ? 'hidden' : 'visible'}
+                    value={capture.preview ? 'hidden' : 'visible'}
                 >
-                    {props.preview ? <VisibilityOff/> : <Visibility/>}
+                    {capture.preview ? <VisibilityOff/> : <Visibility/>}
                 </IconButton>
                 <IconButton
-                    disabled={!props.captured}
+                    disabled={!stream}
                     type="submit"
                     name="action"
-                    value={props.captured ? 'off' : 'on'}
+                    value={stream ? 'off' : 'on'}
                 >
-                    {props.captured ? <CancelPresentation/> : <PresentToAll/>}
+                    {stream ? <CancelPresentation/> : <PresentToAll/>}
                 </IconButton>
             </Form>
         </Info>
         <DataChannel
             position={'bottom'}
-            send={props.sendData}
-            data={props.data}
-            status={props.dataChannelStatus}
+            send={peerConnection.sendData}
+            data={peerConnection.data}
+            status={peerConnection.dataChannelStatus}
         />
     </>
-}))
+}
 
 
 const Video = ({mediaStream, visible, onended}) => {

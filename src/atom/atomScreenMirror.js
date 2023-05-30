@@ -1,6 +1,6 @@
 import {types} from "mobx-state-tree"
 import freeice from "freeice"
-import neutronService from "./signalService"
+import neutronService from "../core/signalService"
 import {usernameFragmentFromOffer} from "../utils/webRTCUtils"
 
 const eventNegotiationNeeded = event => console.log('eventNegotiationNeeded', event)
