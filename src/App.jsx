@@ -1,31 +1,16 @@
 import {addMiddleware, applyPatch} from "mobx-state-tree"
 import {shouldRevalidate} from "./component/ScreenShare"
 import {Outlet} from "react-router-dom"
+import {signalServer} from "./atom/signalService"
 
 export const webrtcvnc = (everything) => [
     {
         path: '/',
-        async lazy() {
-            const signalServiceConfig = {
-                apiKey: "AIzaSyDluLj6FqSyGDc8gBnULGrO71CCNkkg5Eg",
-                authDomain: "webrtcvnc.firebaseapp.com",
-                projectId: "webrtcvnc",
-                storageBucket: "webrtcvnc.appspot.com",
-                messagingSenderId: "134452625511",
-                appId: "1:134452625511:web:936e0c299ca297f2b154c2",
-                measurementId: "G-0EVKJ5EBNY"
-            }
-            const {loader, shouldRevalidate} = await import("./atom/signalService")
-            return {
-                loader: loader(signalServiceConfig), shouldRevalidate,
-                element: <Outlet/>
-            }
-        },
+        element: <Outlet/>,
         children: [
             {
                 index: true,
                 async lazy() {
-                    console.log('index')
                     return await import("./component/Home")
                 }
             },
@@ -41,9 +26,10 @@ export const webrtcvnc = (everything) => [
                     }
                     applyPatch(everything, {op: 'add', path: '/capturedMediaStream', value: capturedMediaStreamConfig})
                     addMiddleware(everything.capturedMediaStream, logMiddleware)
+                    const {signalServer} = await import("./atom/signalService")
                     return {
                         Component, shouldRevalidate,
-                        loader: loader(everything.capturedMediaStream),
+                        loader: loader(everything.capturedMediaStream, signalServer),
                         action: action(everything.capturedMediaStream),
                     }
                 }
@@ -55,24 +41,24 @@ export const webrtcvnc = (everything) => [
                     return {Component, loader: loader(everything)}
                 }
             },
-            {
-                path: "server",
-                async lazy() {
-                    return {
-                        loader: () => {
-                            console.log('server loader')
-                            return {'success': true}
-                        },
-                        action: async ({params, request}) => {
-                            const data = Object.fromEntries(await request.formData())
-                            console.log('server action', request)
-                            console.log(data)
-                            return {'success': true}
-                        },
-                        element: <>hi</>
-                    }
-                }
-            }
         ]
-    }
+    },
+    {
+        path: "/signal-service",
+        async lazy() {
+            const signalServiceConfig = {
+                apiKey: "AIzaSyDluLj6FqSyGDc8gBnULGrO71CCNkkg5Eg",
+                authDomain: "webrtcvnc.firebaseapp.com",
+                projectId: "webrtcvnc",
+                storageBucket: "webrtcvnc.appspot.com",
+                messagingSenderId: "134452625511",
+                appId: "1:134452625511:web:936e0c299ca297f2b154c2",
+                measurementId: "G-0EVKJ5EBNY"
+            }
+            const {loader, shouldRevalidate, action, Component} = await import("./atom/signalService")
+            return {
+                loader: loader(signalServiceConfig), shouldRevalidate, action, Component
+            }
+        }
+    },
 ]

@@ -21,7 +21,7 @@ const createPeerConnection = (root) => {
 }
 
 
-export const loader = (capturedMediaStream) => async ({params, request}) => {
+export const loader = (capturedMediaStream, signalServer) => async ({params, request}) => {
     return defer({
         stream: navigator.mediaDevices.getDisplayMedia({
             video: {displaySurface: "browser"},
@@ -62,8 +62,8 @@ export const Component = inject('everything')(observer(({everything: {capturedMe
     const server = useFetcher()
     useEffect(() => {
         if (!server.data) {
-            server.submit({'hello': 'world'}, {method: 'POST', action: "/server"})
-            server.load('/server')
+            server.submit({'hello': 'world'}, {method: 'POST', action: "/signal-service"})
+            server.load('/signal-service')
         } else {
             console.log(server.data)
         }

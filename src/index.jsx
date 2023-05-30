@@ -1,6 +1,6 @@
+import './index.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import './index.css'
 import {Provider} from "mobx-react"
 import {types} from "mobx-state-tree"
 import {createBrowserRouter, RouterProvider} from "react-router-dom"

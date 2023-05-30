@@ -1,5 +1,6 @@
 import {addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot} from "firebase/firestore"
 import {initializeApp} from "firebase/app"
+import {Link} from "react-router-dom"
 
 export const signalServer = {
     candidateEventHandler: null,
@@ -39,11 +40,23 @@ export const signalServer = {
     },
 }
 export const loader = (firebaseConfig) => ({params, request}) => {
-    console.log('signalServer loader')
     signalServer.db = getFirestore(initializeApp(firebaseConfig))
+    console.log('signalServer', 'loader', 'initialized db')
     return {}
 }
 export const shouldRevalidate = () => {
-    console.log('signalServer shouldRevalidate')
-    return false
+    let revalidate = !signalServer.db
+    console.log('signalServer', 'shouldRevalidate', revalidate)
+    return revalidate
+}
+export const action = async ({params, request}) => {
+    const data = Object.fromEntries(await request.formData())
+    console.log('signalServer', 'action', data)
+    return {'success': 'ok'}
+}
+export const Component = () => {
+    return <>
+        <h1>Signal Server</h1>
+        <Link to={'../'}>Back</Link>
+    </>
 }
