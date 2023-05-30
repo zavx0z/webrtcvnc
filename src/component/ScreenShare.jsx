@@ -20,7 +20,8 @@ const peerConnection = {
     },
 }
 export const loader = ({config, signalServer, displayMedia}) => async ({params, request}) => {
-    console.log('ScreenShare', 'loader')
+    request.isError && request.abort()
+    console.log('ScreenShare', 'loader', request.isError)
     capturedMediaStream = config
     return defer({
         stream: displayMedia.getMedia().then(stream => {

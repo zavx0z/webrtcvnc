@@ -1,4 +1,6 @@
+import React from 'react'
 import {generatePath} from "react-router-dom"
+
 
 export const webrtcvnc = [{
     index: true,
@@ -21,8 +23,8 @@ export const webrtcvnc = [{
             appId: "1:134452625511:web:936e0c299ca297f2b154c2",
             measurementId: "G-0EVKJ5EBNY"
         }
-        const {loader, shouldRevalidate, action, Component} = await import("./core/signalService")
-        return {loader: loader(config), shouldRevalidate, action, Component}
+        const {loader, shouldRevalidate, action, Component, ErrorBoundary} = await import("./core/signalService")
+        return {loader: loader(config), shouldRevalidate, action, Component, ErrorBoundary}
     }, children: [{
         path: "display-media",
         async lazy() {

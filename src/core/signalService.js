@@ -1,6 +1,7 @@
 import {addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot} from "firebase/firestore"
 import {initializeApp} from "firebase/app"
-import {Outlet} from "react-router-dom"
+import {Outlet, useLocation, useMatch, useMatches, useRouteError} from "react-router-dom"
+import React from "react"
 
 export const signalServer = {
     candidateEventHandler: null,
@@ -40,9 +41,15 @@ export const signalServer = {
     },
 }
 export const loader = (firebaseConfig) => ({params, request}) => {
-    signalServer.db = getFirestore(initializeApp(firebaseConfig))
-    console.log('signalServer', 'loader', 'initialized db')
-    return {}
+    console.log('signalServer', 'loader', params.signalService)
+    switch (params.signalService) {
+        case 'firestore':
+            signalServer.db = getFirestore(initializeApp(firebaseConfig))
+            return {}
+        default:
+            request.isError = true
+            throw new Response(`Signal Service >> ${params.signalService} << not supported`, {status: 404})
+    }
 }
 export const shouldRevalidate = () => {
     let revalidate = !signalServer.db
@@ -62,3 +69,13 @@ export const Component = () => {
     </>
 }
 Component.displayName = "SignalService"
+export const ErrorBoundary = () => {
+    const error = useRouteError()
+    // const location = useLocation()
+    // const matches = useMatches()
+    // console.log('signalServer', 'ErrorBoundary', location, matches)
+    return <>
+        <h1>Ошибка приложения!</h1>
+        <pre>{JSON.stringify(error.data, null, 2)}</pre>
+    </>
+}

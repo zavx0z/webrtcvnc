@@ -13,7 +13,8 @@ export const displayMedia = {
         })
     }
 }
-export const loader = (config) => () => {
+export const loader = (config) => ({params, request}) => {
+    request.isError && request.abort()
     displayMedia.config = config
     return true
 }
