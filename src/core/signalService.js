@@ -1,6 +1,6 @@
 import {addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot} from "firebase/firestore"
 import {initializeApp} from "firebase/app"
-import {Link} from "react-router-dom"
+import {Outlet} from "react-router-dom"
 
 export const signalServer = {
     candidateEventHandler: null,
@@ -56,7 +56,9 @@ export const action = async ({params, request}) => {
 }
 export const Component = () => {
     return <>
-        <h1>Signal Server</h1>
-        <Link to={'../'}>Back</Link>
+        <Outlet/>
+        {/*<h1>Signal Server</h1>*/}
+        {/*<Link to={'../'}>Back</Link>*/}
     </>
 }
+Component.displayName = "SignalService"

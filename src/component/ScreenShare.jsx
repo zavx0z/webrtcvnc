@@ -102,8 +102,6 @@ export const Component = () => {
         />
     </>
 }
-
-
 const Video = ({mediaStream, visible, onended}) => {
     const parentRef = useRef()
     const [width, height] = useAspectRatio(parentRef)
@@ -138,3 +136,4 @@ const Video = ({mediaStream, visible, onended}) => {
         />
     </Box>
 }
+Component.displayName = "ScreenShare"

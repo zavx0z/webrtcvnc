@@ -1,74 +1,55 @@
-import {shouldRevalidate} from "./component/ScreenShare"
-import {Outlet} from "react-router-dom"
-import {signalServer} from "./core/signalService"
+import {generatePath} from "react-router-dom"
 
-export const webrtcvnc = [
-    {
-        path: '/',
-        element: <Outlet/>,
-        children: [
-            {
-                index: true,
-                async lazy() {
-                    return await import("./component/Home")
-                }
-            },
-            {
-                path: "share",
-                async lazy() {
-                    console.log('share')
-                    const {Component, loader, action, shouldRevalidate} = await import("./component/ScreenShare")
-                    const config = {
-                        preview: true,
-                        captured: false,
-                    }
-                    const {signalServer} = await import("./core/signalService")
-                    const {displayMedia} = await import("./core/displayMedia")
-                    return {
-                        Component, shouldRevalidate,
-                        loader: loader({config, signalServer, displayMedia}),
-                        action: action(),
-                    }
-                }
-            },
-            {
-                path: "client",
-                async lazy() {
-                    const {Component, loader} = await import("./component/ScreenMirror")
-                    return {Component, loader: loader()}
-                }
-            },
-        ]
-    },
-    {
-        path: "/signal-service",
-        async lazy() {
-            const signalServiceConfig = {
-                apiKey: "AIzaSyDluLj6FqSyGDc8gBnULGrO71CCNkkg5Eg",
-                authDomain: "webrtcvnc.firebaseapp.com",
-                projectId: "webrtcvnc",
-                storageBucket: "webrtcvnc.appspot.com",
-                messagingSenderId: "134452625511",
-                appId: "1:134452625511:web:936e0c299ca297f2b154c2",
-                measurementId: "G-0EVKJ5EBNY"
-            }
-            const {loader, shouldRevalidate, action, Component} = await import("./core/signalService")
-            return {
-                loader: loader(signalServiceConfig), shouldRevalidate, action, Component
-            }
+export const webrtcvnc = [{
+    index: true,
+    async lazy() {
+        const signalService = 'firestore'
+        const clientPath = generatePath('/:signalService/client', {signalService})
+        const sharePath = generatePath('/:signalService/display-media/share', {signalService})
+        const {Component} = await import("./component/Home")
+        return {element: <Component sharePath={sharePath} clientPath={clientPath}/>}
+    }
+}, {
+    path: "/:signalService",
+    async lazy() {
+        const config = {
+            apiKey: "AIzaSyDluLj6FqSyGDc8gBnULGrO71CCNkkg5Eg",
+            authDomain: "webrtcvnc.firebaseapp.com",
+            projectId: "webrtcvnc",
+            storageBucket: "webrtcvnc.appspot.com",
+            messagingSenderId: "134452625511",
+            appId: "1:134452625511:web:936e0c299ca297f2b154c2",
+            measurementId: "G-0EVKJ5EBNY"
         }
-    },
-    {
-        path: "/display-media",
+        const {loader, shouldRevalidate, action, Component} = await import("./core/signalService")
+        return {loader: loader(config), shouldRevalidate, action, Component}
+    }, children: [{
+        path: "display-media",
         async lazy() {
             const config = {
                 video: {displaySurface: "browser"},
                 audio: true
             }
             const {loader, shouldRevalidate, action, Component} = await import("./core/displayMedia")
-            return {
-                loader: loader(config), shouldRevalidate, action, Component
+            return {loader: loader(config), shouldRevalidate, action, Component}
+        }, children: [{
+            path: "share",
+            async lazy() {
+                const config = {
+                    preview: true,
+                    captured: false,
+                }
+                const {displayMedia} = await import("./core/displayMedia")
+                const {signalServer} = await import("./core/signalService")
+                const {Component, loader, action, shouldRevalidate} = await import("./component/ScreenShare")
+                return {Component, shouldRevalidate, loader: loader({config, signalServer, displayMedia}), action: action()}
             }
+        }]
+    }, {
+        path: "client",
+        async lazy() {
+            const {Component, loader} = await import("./component/ScreenMirror")
+            return {Component, loader: loader()}
         }
-    },
-]
+    }]
+}]

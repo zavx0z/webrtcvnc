@@ -1,3 +1,5 @@
+import {Outlet} from "react-router-dom"
+
 export const displayMedia = {
     stream: null,
     config: {
@@ -11,7 +13,6 @@ export const displayMedia = {
         })
     }
 }
-
 export const loader = (config) => () => {
     displayMedia.config = config
     return true
@@ -30,5 +31,6 @@ export const shouldRevalidate = () => {
     return true
 }
 export const Component = () => {
-    return null
+    return <Outlet/>
 }
+Component.displayName = "DisplayMedia"
