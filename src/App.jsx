@@ -1,13 +1,12 @@
 import React from 'react'
 import {generatePath} from "react-router-dom"
 
-
 export const webrtcvnc = [{
     index: true,
     async lazy() {
         const signalService = 'firestore'
         const clientPath = generatePath('/:signalService/client', {signalService})
-        const sharePath = generatePath('/:signalService/display-media/share', {signalService})
+        const sharePath = generatePath('/:signalService/display/share', {signalService})
         const {Component} = await import("./component/Home")
         return {element: <Component sharePath={sharePath} clientPath={clientPath}/>}
     }
@@ -23,10 +22,10 @@ export const webrtcvnc = [{
             appId: "1:134452625511:web:936e0c299ca297f2b154c2",
             measurementId: "G-0EVKJ5EBNY"
         }
-        const {loader, shouldRevalidate, action, Component, ErrorBoundary} = await import("./core/signalService")
-        return {loader: loader(config), shouldRevalidate, action, Component, ErrorBoundary}
+        const {loader, shouldRevalidate, action, Component} = await import("./core/signalService")
+        return {loader: loader(config), shouldRevalidate, action, Component}
     }, children: [{
-        path: "display-media",
+        path: "display",
         async lazy() {
             const config = {
                 video: {displaySurface: "browser"},

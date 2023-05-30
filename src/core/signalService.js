@@ -48,7 +48,7 @@ export const loader = (firebaseConfig) => ({params, request}) => {
             return {}
         default:
             request.isError = true
-            throw new Response(`Signal Service >> ${params.signalService} << not supported`, {status: 404})
+            throw new Response(`Signal Service >> ${params.signalService} << not supported`, {status: 500})
     }
 }
 export const shouldRevalidate = () => {

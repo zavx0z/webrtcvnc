@@ -36,7 +36,6 @@ export const shouldRevalidate = () => {
     console.log('ScreenShare', 'shouldRevalidate', revalidate)
     return revalidate
 }
-
 export const action = () => async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
     console.log('ScreenShare', 'action', data)

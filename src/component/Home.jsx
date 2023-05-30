@@ -17,3 +17,8 @@ export const Component = ({sharePath}) =>
             Client
         </MUILink>
     </Box>
+export const ErrorBoundary = ()=>{
+    return<>
+    <h1>Ой... что-то пошло не так 😧</h1>
+    </>
+}
