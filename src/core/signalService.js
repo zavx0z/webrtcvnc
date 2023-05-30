@@ -1,6 +1,6 @@
 import {addDoc, collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot} from "firebase/firestore"
 import {initializeApp} from "firebase/app"
-import {Outlet, useLocation, useMatch, useMatches, useRouteError} from "react-router-dom"
+import {Outlet} from "react-router-dom"
 import React from "react"
 
 export const signalServer = {
@@ -41,7 +41,7 @@ export const signalServer = {
     },
 }
 export const loader = (firebaseConfig) => ({params, request}) => {
-    console.log('signalServer', 'loader', params.signalService)
+    console.log('SignalServer', 'loader', new URL(request.url).pathname, params.signalService)
     switch (params.signalService) {
         case 'firestore':
             signalServer.db = getFirestore(initializeApp(firebaseConfig))
@@ -51,9 +51,10 @@ export const loader = (firebaseConfig) => ({params, request}) => {
             throw new Response(`Signal Service >> ${params.signalService} << not supported`, {status: 500})
     }
 }
-export const shouldRevalidate = () => {
+export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
     let revalidate = !signalServer.db
-    console.log('signalServer', 'shouldRevalidate', revalidate)
+    revalidate = defaultShouldRevalidate
+    console.log('SignalService', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }
 export const action = async ({params, request}) => {
@@ -61,21 +62,5 @@ export const action = async ({params, request}) => {
     console.log('signalServer', 'action', data)
     return {'success': 'ok'}
 }
-export const Component = () => {
-    return <>
-        <Outlet/>
-        {/*<h1>Signal Server</h1>*/}
-        {/*<Link to={'../'}>Back</Link>*/}
-    </>
-}
+export const Component = () => <Outlet/>
 Component.displayName = "SignalService"
-export const ErrorBoundary = () => {
-    const error = useRouteError()
-    // const location = useLocation()
-    // const matches = useMatches()
-    // console.log('signalServer', 'ErrorBoundary', location, matches)
-    return <>
-        <h1>Ошибка приложения!</h1>
-        <pre>{JSON.stringify(error.data, null, 2)}</pre>
-    </>
-}

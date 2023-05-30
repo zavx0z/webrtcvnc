@@ -21,27 +21,24 @@ const peerConnection = {
 }
 export const loader = ({config, signalServer, displayMedia}) => async ({params, request}) => {
     request.isError && request.abort()
-    console.log('ScreenShare', 'loader', request.isError)
+    console.log('ScreenShare', 'loader', new URL(request.url).pathname)
     capturedMediaStream = config
     return defer({
-        stream: displayMedia.getMedia().then(stream => {
-            capturedMediaStream.captured = true
-            return stream
-        }).catch(err => console.log(err)),
+        displayMedia: displayMedia.getMedia().catch(err => console.log(err)),
         capture: capturedMediaStream,
     })
 }
-export const shouldRevalidate = () => {
+export const shouldRevalidate = ({currentUrl}) => {
     let revalidate = false
-    console.log('ScreenShare', 'shouldRevalidate', revalidate)
+    console.log('ScreenShare', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }
-export const action = () => async ({params, request}) => {
+export const action = ({displayMedia}) => async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
     console.log('ScreenShare', 'action', data)
     switch (data.action) {
         case 'off':
-            capturedMediaStream.setCaptured(false)
+            displayMedia.destroy()
             break
         case 'hidden':
             capturedMediaStream.preview = false
@@ -55,14 +52,14 @@ export const action = () => async ({params, request}) => {
     return {'success': 'ok'}
 }
 export const Component = () => {
-    const {stream, capture} = useLoaderData()
+    const {displayMedia, capture} = useLoaderData()
     const fetcher = useFetcher()
     const onended = () => fetcher.submit({action: 'off'}, {method: "post", action: "/share"})
     return <>
         <Suspense fallback={null}>
-            <Await resolve={stream}>
-                {stream => <Video
-                    mediaStream={stream}
+            <Await resolve={displayMedia}>
+                {displayMedia => <Video
+                    mediaStream={displayMedia.stream}
                     visible={capture.preview}
                     onended={onended}
                 />}
@@ -75,24 +72,27 @@ export const Component = () => {
             userName={peerConnection.usernameFragment}
             senderName={peerConnection.senderUsernameFragment}
         >
-            <Form method={'post'}>
-                <IconButton
-                    disabled={!stream}
-                    type="submit"
-                    name="action"
-                    value={capture.preview ? 'hidden' : 'visible'}
-                >
-                    {capture.preview ? <VisibilityOff/> : <Visibility/>}
-                </IconButton>
-                <IconButton
-                    disabled={!stream}
-                    type="submit"
-                    name="action"
-                    value={stream ? 'off' : 'on'}
-                >
-                    {stream ? <CancelPresentation/> : <PresentToAll/>}
-                </IconButton>
-            </Form>
+            <Suspense fallback={null}>
+                <Await resolve={displayMedia}>
+                    {displayMedia => <Form method={'post'}>
+                        <IconButton
+                            disabled={!displayMedia.captured}
+                            type="submit"
+                            name="action"
+                            value={capture.preview ? 'hidden' : 'visible'}
+                        >
+                            {capture.preview ? <VisibilityOff/> : <Visibility/>}
+                        </IconButton>
+                        <IconButton
+                            type="submit"
+                            name="action"
+                            value={displayMedia.captured ? 'off' : 'on'}
+                        >
+                            {displayMedia.captured ? <CancelPresentation/> : <PresentToAll/>}
+                        </IconButton>
+                    </Form>}
+                </Await>
+            </Suspense>
         </Info>
         <DataChannel
             position={'bottom'}
