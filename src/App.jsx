@@ -12,6 +12,7 @@ export const webrtcvnc = [{
     }
 }, {
     path: "/:signalService",
+    id: "signalService",
     async lazy() {
         const config = {
             apiKey: "AIzaSyDluLj6FqSyGDc8gBnULGrO71CCNkkg5Eg",
@@ -26,15 +27,17 @@ export const webrtcvnc = [{
         return {loader: loader(config), shouldRevalidate, action, Component}
     }, children: [{
         path: "display",
+        id: "display",
         async lazy() {
             const config = {
                 video: {displaySurface: "browser"},
                 audio: true
             }
-            const {loader, shouldRevalidate, action, Component} = await import("./core/displayMedia")
-            return {loader: loader(config), shouldRevalidate, action, Component}
+            const {loader, shouldRevalidate, action, Component, handle} = await import("./core/displayMedia")
+            return {loader: loader(config), shouldRevalidate, action, Component, handle}
         }, children: [{
             path: "share",
+            id: "share",
             async lazy() {
                 const config = {
                     preview: true,
@@ -42,13 +45,8 @@ export const webrtcvnc = [{
                 }
                 const {displayMedia} = await import("./core/displayMedia")
                 const {signalServer} = await import("./core/signalService")
-                const {Component, loader, action, shouldRevalidate} = await import("./component/ScreenShare")
-                return {
-                    shouldRevalidate,
-                    loader: loader({config, signalServer, displayMedia}),
-                    action: action({displayMedia}),
-                    element: <Component displayMedia={displayMedia}/>
-                }
+                const {Component, loader, action, shouldRevalidate, handle} = await import("./component/ScreenShare")
+                return {loader: loader({config, signalServer, displayMedia}), shouldRevalidate, action, Component, handle}
             }
         }]
     }, {

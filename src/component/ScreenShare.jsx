@@ -4,8 +4,7 @@ import React, {Suspense, useEffect, useRef} from "react"
 import DataChannel from "../element/DataChannel"
 import Info from "../element/Info"
 import useAspectRatio from "../hooks/useAspectRatio"
-import {Await, defer, Form, useFetcher, useLoaderData} from "react-router-dom"
-import {useAction} from "../hooks/UseAction"
+import {Await, defer, Form, useFetcher, useLoaderData, useMatches, useOutletContext} from "react-router-dom"
 
 let fetcher
 
@@ -22,13 +21,15 @@ const peerConnection = {
     sendData: () => {
     },
 }
+export const handle = {
+    preview: true,
+}
 export const loader = ({config, signalServer, displayMedia}) => async ({params, request}) => {
     request.isError && request.abort()
-    const {pathname} = new URL(request.url)
-    console.log('ScreenShare', 'loader', pathname)
+    console.log('ScreenShare', 'loader', new URL(request.url).pathname)
     capturedMediaStream = config
     return defer({
-        mediaStream: displayMedia.getMedia(pathname).catch(err => console.log(err)),
+        mediaStream: displayMedia.getMedia(),
         capture: capturedMediaStream,
     })
 }
@@ -38,12 +39,13 @@ export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
     console.log('ScreenShare', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }
-export const action = ({displayMedia}) => async ({params, request}) => {
+export const action = async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
     console.log('ScreenShare', 'action', data)
     switch (data.action) {
         case 'off':
-            displayMedia.destroy()
+            // console.log(displayMedia)
+            // displayMedia.destroy()
             break
         case 'hidden':
             capturedMediaStream.preview = false
@@ -51,24 +53,26 @@ export const action = ({displayMedia}) => async ({params, request}) => {
         case 'visible':
             capturedMediaStream.preview = true
             break
-        case 'captured':
-            break
         default:
             break
     }
     return {'success': 'ok'}
 }
-export const Component = ({displayMedia}) => {
+export const Component = () => {
     fetcher = useFetcher()
+    const {displayMedia} = useOutletContext()
     const {mediaStream, capture} = useLoaderData()
-    const captured = useAction("displayMedia", "setCaptured", displayMedia.captured)
+    const matches = useMatches()
+    const media = matches.find(i => i.id === 'display')
+    console.log('ScreenShare', 'Component', matches)
+    // const captured = useAction("displayMedia", "setCaptured", displayMedia.captured)
     return <>
         <Suspense fallback={null}>
             <Await resolve={mediaStream}>
                 {mediaStream => <Video
                     mediaStream={mediaStream}
                     visible={capture.preview}
-                    onended={displayMedia.destroy}
+                    onended={() => displayMedia.destroy()}
                 />}
             </Await>
         </Suspense>
@@ -81,21 +85,20 @@ export const Component = ({displayMedia}) => {
         >
             <Form method={'post'}>
                 <IconButton
-                    disabled={!captured}
+                    disabled={!displayMedia.captured}
                     type="submit"
                     name="action"
                     value={capture.preview ? 'hidden' : 'visible'}
                 >
                     {capture.preview ? <VisibilityOff/> : <Visibility/>}
                 </IconButton>
-                <IconButton
-                    type="submit"
-                    name="action"
-                    value={captured ? 'off' : 'on'}
-                >
-                    {captured ? <CancelPresentation/> : <PresentToAll/>}
-                </IconButton>
             </Form>
+            <IconButton
+                value={displayMedia.captured ? 'off' : 'on'}
+                onClick={() => displayMedia.destroy()}
+            >
+                {displayMedia.captured ? <CancelPresentation/> : <PresentToAll/>}
+            </IconButton>
         </Info>
         <DataChannel
             position={'bottom'}
