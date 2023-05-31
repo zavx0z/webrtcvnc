@@ -21,9 +21,6 @@ const peerConnection = {
     sendData: () => {
     },
 }
-export const handle = {
-    preview: true,
-}
 export const loader = ({config, signalServer, displayMedia}) => async ({params, request}) => {
     request.isError && request.abort()
     console.log('ScreenShare', 'loader', new URL(request.url).pathname)

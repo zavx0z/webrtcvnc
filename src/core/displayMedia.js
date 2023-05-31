@@ -32,9 +32,6 @@ export const displayMedia = {
         }
     }
 }
-export const handle = {
-    captured: false,
-}
 export const loader = (config) => ({params, request}) => {
     request.isError && request.abort()
     console.log('DisplayMedia', 'loader', new URL(request.url).pathname)
@@ -46,7 +43,6 @@ export const action = async ({params, request}) => {
     let response
     switch (data.action) {
         case 'setCaptured':
-            handle.captured = data.value === 'true' ? true : false
             response = {type: 'displayMedia', action: 'setCaptured', value: data.value}
             break
         default:

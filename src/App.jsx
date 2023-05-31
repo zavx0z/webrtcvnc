@@ -33,8 +33,8 @@ export const webrtcvnc = [{
                 video: {displaySurface: "browser"},
                 audio: true
             }
-            const {loader, shouldRevalidate, action, Component, handle} = await import("./core/displayMedia")
-            return {loader: loader(config), shouldRevalidate, action, Component, handle}
+            const {loader, shouldRevalidate, action, Component} = await import("./core/displayMedia")
+            return {loader: loader(config), shouldRevalidate, action, Component}
         }, children: [{
             path: "share",
             id: "share",
@@ -45,8 +45,8 @@ export const webrtcvnc = [{
                 }
                 const {displayMedia} = await import("./core/displayMedia")
                 const {signalServer} = await import("./core/signalService")
-                const {Component, loader, action, shouldRevalidate, handle} = await import("./component/ScreenShare")
-                return {loader: loader({config, signalServer, displayMedia}), shouldRevalidate, action, Component, handle}
+                const {Component, loader, action, shouldRevalidate} = await import("./component/ScreenShare")
+                return {loader: loader({config, signalServer, displayMedia}), shouldRevalidate, action, Component}
             }
         }]
     }, {
