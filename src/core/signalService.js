@@ -53,7 +53,7 @@ export const loader = (firebaseConfig) => ({params, request}) => {
 }
 export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
     let revalidate = !signalServer.db
-    revalidate = defaultShouldRevalidate
+    // revalidate = defaultShouldRevalidate
     console.log('SignalService', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }

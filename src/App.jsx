@@ -43,7 +43,12 @@ export const webrtcvnc = [{
                 const {displayMedia} = await import("./core/displayMedia")
                 const {signalServer} = await import("./core/signalService")
                 const {Component, loader, action, shouldRevalidate} = await import("./component/ScreenShare")
-                return {Component, shouldRevalidate, loader: loader({config, signalServer, displayMedia}), action: action({displayMedia})}
+                return {
+                    shouldRevalidate,
+                    loader: loader({config, signalServer, displayMedia}),
+                    action: action({displayMedia}),
+                    element: <Component displayMedia={displayMedia}/>
+                }
             }
         }]
     }, {

@@ -5,6 +5,9 @@ import DataChannel from "../element/DataChannel"
 import Info from "../element/Info"
 import useAspectRatio from "../hooks/useAspectRatio"
 import {Await, defer, Form, useFetcher, useLoaderData} from "react-router-dom"
+import {useAction} from "../hooks/UseAction"
+
+let fetcher
 
 let capturedMediaStream = {
     preview: true,
@@ -21,15 +24,17 @@ const peerConnection = {
 }
 export const loader = ({config, signalServer, displayMedia}) => async ({params, request}) => {
     request.isError && request.abort()
-    console.log('ScreenShare', 'loader', new URL(request.url).pathname)
+    const {pathname} = new URL(request.url)
+    console.log('ScreenShare', 'loader', pathname)
     capturedMediaStream = config
     return defer({
-        displayMedia: displayMedia.getMedia().catch(err => console.log(err)),
+        mediaStream: displayMedia.getMedia(pathname).catch(err => console.log(err)),
         capture: capturedMediaStream,
     })
 }
-export const shouldRevalidate = ({currentUrl}) => {
+export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
     let revalidate = false
+    // revalidate = defaultShouldRevalidate
     console.log('ScreenShare', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }
@@ -46,22 +51,24 @@ export const action = ({displayMedia}) => async ({params, request}) => {
         case 'visible':
             capturedMediaStream.preview = true
             break
+        case 'captured':
+            break
         default:
             break
     }
     return {'success': 'ok'}
 }
-export const Component = () => {
-    const {displayMedia, capture} = useLoaderData()
-    const fetcher = useFetcher()
-    const onended = () => fetcher.submit({action: 'off'}, {method: "post", action: "/share"})
+export const Component = ({displayMedia}) => {
+    fetcher = useFetcher()
+    const {mediaStream, capture} = useLoaderData()
+    const captured = useAction("displayMedia", "setCaptured", displayMedia.captured)
     return <>
         <Suspense fallback={null}>
-            <Await resolve={displayMedia}>
-                {displayMedia => <Video
-                    mediaStream={displayMedia.stream}
+            <Await resolve={mediaStream}>
+                {mediaStream => <Video
+                    mediaStream={mediaStream}
                     visible={capture.preview}
-                    onended={onended}
+                    onended={displayMedia.destroy}
                 />}
             </Await>
         </Suspense>
@@ -72,27 +79,23 @@ export const Component = () => {
             userName={peerConnection.usernameFragment}
             senderName={peerConnection.senderUsernameFragment}
         >
-            <Suspense fallback={null}>
-                <Await resolve={displayMedia}>
-                    {displayMedia => <Form method={'post'}>
-                        <IconButton
-                            disabled={!displayMedia.captured}
-                            type="submit"
-                            name="action"
-                            value={capture.preview ? 'hidden' : 'visible'}
-                        >
-                            {capture.preview ? <VisibilityOff/> : <Visibility/>}
-                        </IconButton>
-                        <IconButton
-                            type="submit"
-                            name="action"
-                            value={displayMedia.captured ? 'off' : 'on'}
-                        >
-                            {displayMedia.captured ? <CancelPresentation/> : <PresentToAll/>}
-                        </IconButton>
-                    </Form>}
-                </Await>
-            </Suspense>
+            <Form method={'post'}>
+                <IconButton
+                    disabled={!captured}
+                    type="submit"
+                    name="action"
+                    value={capture.preview ? 'hidden' : 'visible'}
+                >
+                    {capture.preview ? <VisibilityOff/> : <Visibility/>}
+                </IconButton>
+                <IconButton
+                    type="submit"
+                    name="action"
+                    value={captured ? 'off' : 'on'}
+                >
+                    {captured ? <CancelPresentation/> : <PresentToAll/>}
+                </IconButton>
+            </Form>
         </Info>
         <DataChannel
             position={'bottom'}

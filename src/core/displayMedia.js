@@ -1,6 +1,7 @@
 import {Outlet, useFetcher} from "react-router-dom"
 
 let fetcher
+
 export const displayMedia = {
     stream: null,
     captured: false,
@@ -8,11 +9,11 @@ export const displayMedia = {
         video: {displaySurface: "browser"},
         audio: true
     },
-    getMedia: async function () {
+    getMedia: async function (pathName) {
         return navigator.mediaDevices.getDisplayMedia(this.config).then(stream => {
             this.stream = stream
-            this.captured = true
-            return this
+            setTimeout(() => fetcher.submit({action: 'setCaptured', value: true}, {method: "post"}), 0)
+            return stream
         })
     },
     destroy: function () {
@@ -28,7 +29,7 @@ export const displayMedia = {
                 this.stream.removeTrack(audioTrack)
             }
             this.stream = null
-            this.captured = false
+            fetcher.submit({action: 'setCaptured', value: false}, {method: "post"})
         }
     }
 }
@@ -39,16 +40,19 @@ export const loader = (config) => ({params, request}) => {
     return true
 }
 export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
-    let revalidate
-    revalidate = defaultShouldRevalidate
+    let revalidate = false
+    // revalidate = defaultShouldRevalidate
     console.log('DisplayMedia', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }
 export const action = async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
+    console.log('DisplayMedia', data)
     switch (data.action) {
-        case 'captured':
-            console.log(data)
+        case 'setCaptured':
+            displayMedia.captured = data.value
+            return {type: 'displayMedia', action: 'setCaptured', value: data.value}
+            console.log('DisplayMedia', 'captured', displayMedia.captured)
             break
         case 'off':
             break
