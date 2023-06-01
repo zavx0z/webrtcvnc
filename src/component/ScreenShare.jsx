@@ -4,9 +4,7 @@ import React, {Suspense, useEffect, useRef} from "react"
 import DataChannel from "../element/DataChannel"
 import Info from "../element/Info"
 import useAspectRatio from "../hooks/useAspectRatio"
-import {Await, defer, Form, useFetcher, useLoaderData, useMatches, useOutletContext} from "react-router-dom"
-
-let fetcher
+import {Await, defer, useLoaderData, useOutletContext} from "react-router-dom"
 
 let capturedMediaStream = {
     preview: true,
@@ -32,37 +30,20 @@ export const loader = ({config, signalServer, displayMedia}) => async ({params, 
 }
 export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
     let revalidate = false
-    // revalidate = defaultShouldRevalidate
     console.log('ScreenShare', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }
 export const action = async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
     console.log('ScreenShare', 'action', data)
-    switch (data.action) {
-        case 'off':
-            // console.log(displayMedia)
-            // displayMedia.destroy()
-            break
-        case 'hidden':
-            capturedMediaStream.preview = false
-            break
-        case 'visible':
-            capturedMediaStream.preview = true
-            break
-        default:
-            break
-    }
     return {'success': 'ok'}
 }
 export const Component = () => {
-    fetcher = useFetcher()
-    const {displayMedia} = useOutletContext()
+    const {displayMedia, signalServer} = useOutletContext()
     const {mediaStream, capture} = useLoaderData()
-    const matches = useMatches()
-    const media = matches.find(i => i.id === 'display')
-    console.log('ScreenShare', 'Component', matches)
-    // const captured = useAction("displayMedia", "setCaptured", displayMedia.captured)
+    useEffect(() => {
+        console.log(displayMedia.captured)
+    }, [displayMedia.captured])
     return <>
         <Suspense fallback={null}>
             <Await resolve={mediaStream}>
@@ -80,19 +61,15 @@ export const Component = () => {
             userName={peerConnection.usernameFragment}
             senderName={peerConnection.senderUsernameFragment}
         >
-            <Form method={'post'}>
-                <IconButton
-                    disabled={!displayMedia.captured}
-                    type="submit"
-                    name="action"
-                    value={capture.preview ? 'hidden' : 'visible'}
-                >
-                    {capture.preview ? <VisibilityOff/> : <Visibility/>}
-                </IconButton>
-            </Form>
+            <IconButton
+                disabled={!displayMedia.captured}
+                value={capture.preview ? 'hidden' : 'visible'}
+            >
+                {capture.preview ? <VisibilityOff/> : <Visibility/>}
+            </IconButton>
             <IconButton
                 value={displayMedia.captured ? 'off' : 'on'}
-                onClick={() => displayMedia.destroy()}
+                onClick={displayMedia.destroy}
             >
                 {displayMedia.captured ? <CancelPresentation/> : <PresentToAll/>}
             </IconButton>

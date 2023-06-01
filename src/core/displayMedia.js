@@ -1,6 +1,6 @@
-import {Outlet, useFetcher, useMatches, useNavigation} from "react-router-dom"
+import {Outlet, useOutletContext} from "react-router-dom"
+import {useEffect} from "react"
 
-let fetcher
 export const displayMedia = {
     stream: null,
     captured: false,
@@ -13,10 +13,9 @@ export const displayMedia = {
             .then(stream => {
                 this.stream = stream
                 this.captured = true
-                setTimeout(() => fetcher.submit({action: 'setCaptured', value: true}, {method: "post"}), 0)
+                console.log(this.captured)
                 return stream
             })
-            .catch(() => setTimeout(() => fetcher.submit({action: 'setCaptured', value: false}, {method: "post"}), 0))
     },
     destroy: function () {
         if (this.stream) {
@@ -28,38 +27,30 @@ export const displayMedia = {
             audioTrack && this.stream.removeTrack(audioTrack)
             this.stream = null
             this.captured = false
-            fetcher.submit({action: 'setCaptured', value: false}, {method: "post"})
         }
     }
 }
 export const loader = (config) => ({params, request}) => {
     request.isError && request.abort()
-    console.log('DisplayMedia', 'loader', new URL(request.url).pathname)
+    console.log(new URL(request.url).pathname, 'loader')
     displayMedia.config = config
     return true
 }
 export const action = async ({params, request}) => {
     const data = Object.fromEntries(await request.formData())
-    let response
-    switch (data.action) {
-        case 'setCaptured':
-            response = {type: 'displayMedia', action: 'setCaptured', value: data.value}
-            break
-        default:
-            response = {type: 'displayMedia', action: 'default', value: data}
-            break
-    }
-    console.log(response)
-    return response
+    console.log(new URL(request.url).pathname, 'action', data)
+    return {'success': 'ok'}
 }
 export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
     let revalidate = false
-    // revalidate = defaultShouldRevalidate
     console.log('DisplayMedia', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
 }
 export const Component = () => {
-    fetcher = useFetcher()
-    return <Outlet context={{displayMedia: displayMedia}}/>
+    useEffect(() => {
+        console.log(displayMedia.captured)
+    }, [displayMedia.captured])
+    const context = useOutletContext()
+    return <Outlet context={{displayMedia, ...context}}/>
 }
 Component.displayName = "DisplayMedia"

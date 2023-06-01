@@ -7,9 +7,9 @@ export const signalServer = {
     candidateEventHandler: null,
     answerEventHandler: null,
     offerEventHandler: null,
-    db: null,
-    on: (actionType, callback) => {
-        this.answerEventHandler = onSnapshot(collection(this.db, actionType), snapshot => {
+    service: null,
+    on: function (actionType, callback) {
+        this.answerEventHandler = onSnapshot(collection(this.service, actionType), snapshot => {
             snapshot.docChanges().forEach(change => {
                 if (change.type === "added") {
                     const data = change.doc.data()
@@ -19,9 +19,9 @@ export const signalServer = {
             })
         })
     },
-    off: async (actionType, callback) => {
-        const oldItems = await getDocs(collection(this.db, actionType))
-        oldItems.forEach(document => deleteDoc(doc(this.db, actionType, document.id)))
+    off: async function (actionType, callback) {
+        const oldItems = await getDocs(collection(this.service, actionType))
+        oldItems.forEach(document => deleteDoc(doc(this.service, actionType, document.id)))
         switch (actionType) {
             case "offer":
                 this.offerEventHandler && this.offerEventHandler()
@@ -36,15 +36,15 @@ export const signalServer = {
                 break
         }
     },
-    emit: async (actionType, arg) => {
-        await addDoc(collection(this.db, actionType), arg)
+    emit: async function (actionType, arg) {
+        await addDoc(collection(this.service, actionType), arg)
     },
 }
 export const loader = (firebaseConfig) => ({params, request}) => {
     console.log('SignalServer', 'loader', new URL(request.url).pathname, params.signalService)
     switch (params.signalService) {
         case 'firestore':
-            signalServer.db = getFirestore(initializeApp(firebaseConfig))
+            signalServer.service = getFirestore(initializeApp(firebaseConfig))
             return {}
         default:
             request.isError = true
@@ -52,7 +52,7 @@ export const loader = (firebaseConfig) => ({params, request}) => {
     }
 }
 export const shouldRevalidate = ({currentUrl, defaultShouldRevalidate}) => {
-    let revalidate = !signalServer.db
+    let revalidate = !signalServer.service
     // revalidate = defaultShouldRevalidate
     console.log('SignalService', 'revalidate', currentUrl.pathname, revalidate)
     return revalidate
@@ -62,5 +62,7 @@ export const action = async ({params, request}) => {
     console.log('signalServer', 'action', data)
     return {'success': 'ok'}
 }
-export const Component = () => <Outlet/>
+export const Component = () => {
+    return <Outlet context={{signalServer}}/>
+}
 Component.displayName = "SignalService"
