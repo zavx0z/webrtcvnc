@@ -3,33 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Mini App</title>
+    <title>Telegram WebRTC Test</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; background: #111; color: #fff; }
+        video { width: 100%; max-width: 600px; border: 2px solid #00acee; border-radius: 10px; }
+        button { background: #00acee; color: white; border: none; padding: 10px 20px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <h1>Добро пожаловать в Mini App!</h1>
-    <p>Это тестовое приложение для Telegram Web Apps.</p>
-    <script type="module">
-      
-      
-      document.addEventListener("DOMContentLoaded", async () => {
-        await new Promise((res) => import("https://zavx0z.github.io/dev-tools/index.js").then(() => setTimeout(res, 200)))
+
+    <h1>Тест WebRTC в Telegram</h1>
+    <video id="localVideo" autoplay playsinline></video>
+    <br>
+    <button id="startBtn">Включить камеру</button>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            await new Promise((res) => import("https://zavx0z.github.io/dev-tools/index.js").then(() => setTimeout(res, 200)))
             console.log("window.Telegram.WebApp")
+
+
+            const videoElement = document.getElementById("localVideo");
+            const startButton = document.getElementById("startBtn");
+            console.log("startButton", startButton)
+            startButton.addEventListener("click", async () => {
+                console.log("startButton.addEventListener")
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    videoElement.srcObject = stream;
+                } catch (error) {
+                    console.error("Ошибка доступа к камере:", error);
+                    alert("Не удалось получить доступ к камере.");
+                }
+            });
             const webApp = window.Telegram.WebApp;
             webApp.requestFullscreen(); // Включает полноэкранный режим
-            
-            webApp.expand(); // Развернуть приложение на весь экран
 
             // Настроить главную кнопку Telegram
             webApp.MainButton.setText("Отправить данные боту");
             webApp.MainButton.show();
-
-            // Действие при нажатии кнопки
             webApp.MainButton.onClick(() => {
-                webApp.sendData("Пользователь нажал кнопку!");
+                webApp.sendData("Пользователь протестировал WebRTC!");
             });
         });
     </script>
     <dev-tools></dev-tools>
+
 </body>
 </html>
